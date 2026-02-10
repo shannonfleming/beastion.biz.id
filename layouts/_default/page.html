@@ -1,57 +1,51 @@
 {{ define "main" }}
-<!-- 1. CONTAINER UTAMA (Kita samakan jadi max-w-6xl agar muat Sidebar) -->
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<!-- 1. CONTAINER UTAMA -->
+<div class="container mx-auto px-4 py-12 max-w-6xl">
 
-    <!-- 2. LAYOUT FLEXBOX (Kiri Konten, Kanan Sidebar) -->
-    <div class="flex flex-col lg:flex-row gap-10 items-start">
+    <!-- 2. LAYOUT: Flexbox (Kiri Konten, Kanan Sidebar) -->
+    <div class="flex flex-col lg:flex-row gap-12 items-start">
 
         <!-- ==========================
-             KOLOM KIRI: KONTEN HALAMAN (70%)
+             KOLOM KIRI: ARTIKEL (66%)
              ========================== -->
         <article class="w-full lg:w-8/12 bg-white min-w-0">
             
             <!-- Breadcrumb -->
-            <nav aria-label="Breadcrumb" class="mb-4 text-sm text-gray-500 font-bold uppercase tracking-wide">
+            <nav class="text-sm text-gray-500 mb-6 font-bold uppercase tracking-wide flex items-center gap-2">
                 <a href="/" class="hover:text-red-600">Home</a> 
-                <span class="mx-2">/</span>
-                <span class="text-gray-900">{{ .Title }}</span>
+                <span>/</span>
+                <span class="text-gray-900 line-clamp-1">{{ .Title }}</span>
             </nav>
 
-            <!-- Header Halaman -->
-            <header class="mb-6 border-b border-gray-200 pb-6">
-                <h1 class="text-3xl lg:text-4xl font-black text-gray-900 leading-tight mb-4 uppercase">
+            <!-- Header -->
+            <header class="mb-8 border-b border-gray-200 pb-6">
+                <h1 class="text-3xl lg:text-5xl font-black text-gray-900 leading-tight mb-4">
                     {{ .Title }}
                 </h1>
                 
-                <!-- Tanggal Update (Penting untuk Trust AdSense) -->
-                <div class="text-xs text-gray-500 font-mono">
-                    Last Updated: <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
+                <div class="flex items-center gap-4 text-xs text-gray-500 font-mono uppercase">
+                    <span>By <strong>{{ .Params.author | default "Editor" }}</strong></span>
+                    <span>•</span>
+                    <time>{{ .Date.Format "January 02, 2006" }}</time>
                 </div>
-
-                {{ with .Description }}
-                <p class="text-gray-600 text-lg font-medium italic mt-4">
-                    {{ . }}
-                </p>
-                {{ end }}
             </header>
 
-            <!-- GAMBAR UTAMA (FEATURED IMAGE) -->
-            <!-- Sekarang gambar akan muncul di Page juga -->
+            <!-- GAMBAR UTAMA (Wajib absURL) -->
             {{ if .Params.featured_image }}
-            <figure class="mb-8 w-full h-auto rounded-lg overflow-hidden shadow-sm border border-gray-100">
+            <figure class="mb-8 w-full h-auto rounded-xl overflow-hidden shadow-sm border border-gray-100">
                 <img src="{{ .Params.featured_image | absURL }}" 
                      alt="{{ .Title }}" 
                      class="w-full h-full object-cover">
             </figure>
             {{ end }}
 
-            <!-- SLOT IKLAN ATAS -->
-            {{ if not (in .Params.categories "Legal") }} 
-            <div class="my-6 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
-                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                <!-- Paste Kode Iklan Display AdSense Di Sini -->
-                <div class="h-[100px] flex items-center justify-center text-gray-300 text-xs">
-                    Slot Iklan Atas
+            <!-- IKLAN ATAS -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="my-8 w-full bg-gray-50 border border-gray-200 p-6 text-center rounded-lg">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Advertisement</span>
+                <!-- Script AdSense Display -->
+                <div class="h-[100px] flex items-center justify-center text-gray-300 text-xs font-mono">
+                    [ Slot Iklan Atas Responsive ]
                 </div>
             </div>
             {{ end }}
@@ -61,13 +55,13 @@
                 {{ .Content }}
             </div>
 
-            <!-- SLOT IKLAN BAWAH -->
+            <!-- IKLAN BAWAH -->
             {{ if not (in .Params.categories "Legal") }}
-            <div class="mt-10 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
-                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                <!-- Paste Kode Iklan Multiplex Di Sini -->
-                <div class="h-[250px] flex items-center justify-center text-gray-300 text-xs">
-                    Slot Iklan Bawah
+            <div class="mt-12 w-full bg-gray-50 border border-gray-200 p-6 text-center rounded-lg">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Advertisement</span>
+                <!-- Script AdSense Multiplex -->
+                <div class="h-[250px] flex items-center justify-center text-gray-300 text-xs font-mono">
+                    [ Slot Iklan Bawah Multiplex ]
                 </div>
             </div>
             {{ end }}
@@ -75,34 +69,68 @@
         </article>
 
         <!-- ==========================
-             KOLOM KANAN: SIDEBAR (30%)
+             KOLOM KANAN: SIDEBAR (33%)
              ========================== -->
-        <!-- SEKARANG PAGE PUNYA SIDEBAR! -->
         <aside class="w-full lg:w-4/12 space-y-8 sticky top-24">
             
-            <!-- WIDGET IKLAN SIDEBAR -->
+            <!-- 1. WIDGET IKLAN SIDEBAR -->
             {{ if not (in .Params.categories "Legal") }}
-            <div class="bg-white border border-gray-200 p-4 rounded shadow-sm flex flex-col items-center">
-                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
-                <!-- Iklan Vertical -->
-                <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                    AdSense Vertical 300x600
+            <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm flex flex-col items-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
+                <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-mono">
+                    [ AdSense Vertical 300x600 ]
                 </div>
             </div>
             {{ end }}
 
-            <!-- WIDGET NAVIGASI -->
-            <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
-                <h3 class="font-black text-gray-900 uppercase border-l-4 border-red-600 pl-3 mb-4 text-sm">
-                    Explore
-                </h3>
-                <ul class="space-y-2 text-sm text-gray-600">
-                    <li><a href="/" class="hover:text-red-600 block py-1 border-b border-gray-100">Home</a></li>
-                    <li><a href="/about" class="hover:text-red-600 block py-1 border-b border-gray-100">About Us</a></li>
-                    <li><a href="/contact" class="hover:text-red-600 block py-1 border-b border-gray-100">Contact</a></li>
-                    <li><a href="/privacy-policy" class="hover:text-red-600 block py-1 border-b border-gray-100">Privacy Policy</a></li>
-                </ul>
+            <!-- 2. WIDGET LATEST NEWS (LOGIC DIPERBAIKI) -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="font-black text-gray-900 uppercase text-sm tracking-wider border-l-4 border-red-600 pl-3">
+                        Latest News
+                    </h3>
+                </div>
+                
+                <div class="p-4 flex flex-col gap-5">
+                    <!-- LOGIC BARU: Ambil semua halaman yang bukan 'section' kosong (menghindari halaman about/contact) -->
+                    {{ $posts := where .Site.RegularPages "Section" "ne" "" }}
+                    
+                    <!-- Jika tidak ada postingan, tampilkan pesan debug (bisa dihapus nanti) -->
+                    {{ if eq (len $posts) 0 }}
+                        <div class="text-xs text-red-500 p-2 border border-red-200 bg-red-50">
+                            Warning: Tidak ada artikel ditemukan. Cek folder 'content'.
+                        </div>
+                    {{ end }}
+
+                    <!-- Loop 5 Artikel Terakhir -->
+                    {{ range first 5 $posts }}
+                    <a href="{{ .Permalink }}" class="flex gap-4 group items-start">
+                        <!-- Thumbnail -->
+                        <div class="w-20 h-20 bg-gray-100 shrink-0 overflow-hidden rounded-md border border-gray-100 relative">
+                            {{ if .Params.featured_image }}
+                            <img src="{{ .Params.featured_image | absURL }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-300">
+                            {{ else }}
+                            <div class="w-full h-full flex items-center justify-center text-gray-300 text-[10px] text-center p-1">
+                                No Img
+                            </div>
+                            {{ end }}
+                        </div>
+                        <!-- Judul -->
+                        <div class="flex-1 min-w-0">
+                            <span class="text-[10px] font-bold text-red-600 uppercase mb-1 block">
+                                {{ if .Params.categories }}{{ index .Params.categories 0 }}{{ else }}News{{ end }}
+                            </span>
+                            <h4 class="text-sm font-bold text-gray-900 leading-tight group-hover:text-red-600 line-clamp-2">
+                                {{ .Title }}
+                            </h4>
+                            <time class="text-[10px] text-gray-400 mt-1 block">{{ .Date.Format "Jan 02" }}</time>
+                        </div>
+                    </a>
+                    {{ end }}
+                </div>
             </div>
+
+            <!-- Widget "Explore" SAYA HAPUS AGAR TIDAK DOUBLE DENGAN FOOTER -->
 
         </aside>
 
