@@ -10,7 +10,7 @@ import pytz
 from datetime import datetime
 from slugify import slugify
 from io import BytesIO
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps # Ditambah ImageOps
 from groq import Groq, APIError, RateLimitError
 
 # --- SUPPRESS WARNINGS ---
@@ -69,19 +69,54 @@ DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 TARGET_PER_SOURCE = 1 
 
-# 6. STOK FOTO CADANGAN (JIKA AI ERROR, PAKAI INI SUPAYA TETAP BAGUS)
-BACKUP_REAL_PHOTOS = [
-    "https://images.unsplash.com/photo-1522778119026-d647f0565c6a?auto=format&fit=crop&w=1200&q=80", # Stadium
-    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1200&q=80", # Goal net
-    "https://images.unsplash.com/photo-1579952363873-27f3bde9be2b?auto=format&fit=crop&w=1200&q=80", # Soccer ball
-    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80", # Fans
-    "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?auto=format&fit=crop&w=1200&q=80", # Player kick
-    "https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1200&q=80", # Generic Football
-    "https://images.unsplash.com/photo-1556056504-5c7696c4c28d?auto=format&fit=crop&w=1200&q=80", # Boots
-    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=1200&q=80", # Crowd
-    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80", # Soccer Field
-    "https://images.unsplash.com/photo-1624880357913-a8539238245b?auto=format&fit=crop&w=1200&q=80"  # Red Jersey
-]
+# ==========================================
+# 📸 POOL GAMBAR (ANTI DUPLIKAT)
+# ==========================================
+# Setiap keyword punya BANYAK pilihan gambar.
+# Script akan memilih salah satu secara acak.
+
+KEYWORD_IMAGE_POOL = {
+    "arsenal": [
+        "https://images.unsplash.com/photo-1575361204480-aadea25e6e68",
+        "https://images.unsplash.com/photo-1494195159496-5d2f6233d6b6",
+        "https://images.unsplash.com/photo-1516246844974-e39556ee0945"
+    ],
+    "chelsea": [
+        "https://images.unsplash.com/photo-1627341852895-467406c55cc0", 
+        "https://images.unsplash.com/photo-1594476664275-c7216c5b078e",
+        "https://images.unsplash.com/photo-1605634352771-419b4b045353"
+    ],
+    "liverpool": [
+        "https://images.unsplash.com/photo-1636232707255-08cc5a65383f",
+        "https://images.unsplash.com/photo-1626025437642-0b05076ca301",
+        "https://images.unsplash.com/photo-1611004183864-1698f1f54497"
+    ],
+    "man city": [
+        "https://images.unsplash.com/photo-1636125015306-03738a9d18b6",
+        "https://images.unsplash.com/photo-1616428666355-66236314f852",
+        "https://images.unsplash.com/photo-1574629810360-7efbbe195018"
+    ],
+    "man utd": [
+        "https://images.unsplash.com/photo-1605218427306-633ba87c9759",
+        "https://images.unsplash.com/photo-1628891544265-2766863640b3",
+        "https://images.unsplash.com/photo-1518605348408-8df3d2b45281"
+    ],
+    "real madrid": [
+        "https://images.unsplash.com/photo-1551958219-acbc608c6377",
+        "https://images.unsplash.com/photo-1563402778942-1e967df2140b"
+    ],
+    "barcelona": [
+        "https://images.unsplash.com/photo-1543796076-bb4d48d0a87a",
+        "https://images.unsplash.com/photo-1558602781-325b5971c975"
+    ],
+    "generic": [
+        "https://images.unsplash.com/photo-1522778119026-d647f0565c6a", 
+        "https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9", 
+        "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d", 
+        "https://images.unsplash.com/photo-1579952363873-27f3bde9be2b", 
+        "https://images.unsplash.com/photo-1518091043644-c1d4457512c6"
+    ]
+}
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -89,7 +124,7 @@ USER_AGENTS = [
 ]
 
 # ==========================================
-# 🧠 MEMORY & LINKING SYSTEM
+# 🧠 MEMORY & LINKING
 # ==========================================
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
@@ -101,18 +136,15 @@ def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
     memory[title] = f"/articles/{slug}" 
-    if len(memory) > 200: 
-        memory = dict(list(memory.items())[-200:])
+    if len(memory) > 200: memory = dict(list(memory.items())[-200:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def get_internal_links_markdown():
     memory = load_link_memory()
     items = list(memory.items())
     if not items: return ""
-    
     count = min(5, len(items))
     selected_items = random.sample(items, count)
-    
     links_md = ""
     for title, url in selected_items:
         links_md += f"- [{title}]({url})\n"
@@ -120,29 +152,18 @@ def get_internal_links_markdown():
 
 def inject_links_in_middle(content_body, links_markdown):
     if not links_markdown: return content_body
-    
-    injection_block = f"""
-\n\n
-> **🔥 RECOMMENDED FOR YOU:**
->
-{"> " + links_markdown.replace("- ", "> - ")}
-\n\n
-"""
+    injection_block = f"""\n\n> **🔥 RECOMMENDED FOR YOU:**\n>\n{"> " + links_markdown.replace("- ", "> - ")}\n\n"""
     content_body = content_body.replace("\r\n", "\n")
     paragraphs = content_body.split('\n\n')
-    
-    if len(paragraphs) < 3:
-        return content_body + injection_block
-        
+    if len(paragraphs) < 3: return content_body + injection_block
     target_index = int(len(paragraphs) * 0.4)
     while target_index < len(paragraphs) and paragraphs[target_index].strip().startswith("#"):
         target_index += 1
-        
     paragraphs.insert(target_index, injection_block)
     return '\n\n'.join(paragraphs)
 
 # ==========================================
-# 📡 INDEXING & RSS TOOLS
+# 📡 RSS & INDEXING
 # ==========================================
 def fetch_rss_feed(url):
     headers = {'User-Agent': random.choice(USER_AGENTS)}
@@ -152,6 +173,14 @@ def fetch_rss_feed(url):
         return feedparser.parse(response.content)
     except: return None
 
+def submit_to_indexnow(url):
+    try:
+        endpoint = "https://api.indexnow.org/indexnow"
+        host = WEBSITE_URL.replace("https://", "").replace("http://", "")
+        data = {"host": host, "key": INDEXNOW_KEY, "keyLocation": f"https://{host}/{INDEXNOW_KEY}.txt", "urlList": [url]}
+        requests.post(endpoint, json=data, headers={'Content-Type': 'application/json'}, timeout=5)
+    except: pass
+
 def submit_to_google(url):
     if not GOOGLE_JSON_KEY or not GOOGLE_LIBS_AVAILABLE: return
     try:
@@ -159,136 +188,106 @@ def submit_to_google(url):
         SCOPES = ["https://www.googleapis.com/auth/indexing"]
         credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPES)
         service = build("indexing", "v3", credentials=credentials)
-        body = {"url": url, "type": "URL_UPDATED"}
-        service.urlNotifications().publish(body=body).execute()
+        service.urlNotifications().publish(body={"url": url, "type": "URL_UPDATED"}).execute()
         print(f"      🚀 Google Indexing Submitted")
     except Exception: pass
 
-def submit_to_indexnow(url):
-    try:
-        endpoint = "https://api.indexnow.org/indexnow"
-        host = WEBSITE_URL.replace("https://", "").replace("http://", "")
-        data = {
-            "host": host,
-            "key": INDEXNOW_KEY,
-            "keyLocation": f"https://{host}/{INDEXNOW_KEY}.txt",
-            "urlList": [url]
-        }
-        requests.post(endpoint, json=data, headers={'Content-Type': 'application/json'}, timeout=5)
-    except: pass
-
 # ==========================================
-# 🎨 SMART IMAGE ENGINE (AI + ROBUST FALLBACK)
+# 🎨 UNIQUE IMAGE GENERATOR (FLIP + FILTER)
 # ==========================================
-def download_image_from_url(url, filename):
-    """Fungsi helper untuk download dan optimize gambar"""
+def download_and_make_unique(url, filename):
     try:
+        # 1. Download Gambar
         headers = {'User-Agent': random.choice(USER_AGENTS)}
+        
+        # Tambahkan parameter Unsplash agar dapat versi HD
+        if "unsplash" in url and "?" not in url:
+            url += "?auto=format&fit=crop&w=1200&q=80"
+            
         response = requests.get(url, headers=headers, timeout=20)
         
         if response.status_code == 200:
-            # Cek ukuran file. Jika < 5KB, kemungkinan itu gambar error placeholder
-            if len(response.content) < 5000: 
-                return False
-                
+            if len(response.content) < 5000: return False # Skip file corrupt/error kecil
+            
             img = Image.open(BytesIO(response.content)).convert("RGB")
-            # Resize agar ringan tapi tajam
-            img.thumbnail((1200, 1200)) 
-            enhancer = ImageEnhance.Sharpness(img)
-            img = enhancer.enhance(1.2)
+            
+            # ----------------------------------------------------
+            # TEKNIK 1: MIRRORING (Flip Horizontal secara acak)
+            # ----------------------------------------------------
+            # 50% kemungkinan gambar akan dibalik.
+            # Ini membuat Google menganggapnya sebagai gambar baru.
+            if random.random() > 0.5:
+                img = ImageOps.mirror(img)
+                print("      🎨 Applied: Image Flipping (Unique)")
+
+            # ----------------------------------------------------
+            # TEKNIK 2: RANDOM COLOR GRADING (Visual Noise)
+            # ----------------------------------------------------
+            # Ubah contrast sedikit (antara 0.9 sampai 1.2)
+            contrast_factor = random.uniform(0.9, 1.2)
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(contrast_factor)
+            
+            # Ubah brightness sedikit (antara 0.95 sampai 1.05)
+            brightness_factor = random.uniform(0.95, 1.05)
+            enhancer_b = ImageEnhance.Brightness(img)
+            img = enhancer_b.enhance(brightness_factor)
+
+            # Resize standar
+            img.thumbnail((1200, 1200))
             
             output_path = f"{IMAGE_DIR}/{filename}"
             img.save(output_path, "WEBP", quality=85)
             return True
+            
     except Exception as e:
-        print(f"      ⚠️ Image Download Error: {e}")
+        print(f"      ⚠️ Image Error: {e}")
         return False
     return False
 
-def get_best_image(query, filename):
+def get_unique_image(title, keyword, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
     
-    print(f"      🎨 Processing Image for: {query[:30]}...")
-    clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
+    title_lower = title.lower()
+    selected_url = None
     
-    # 1. COBA AI (POLLINATIONS) - Dengan Model 'Flux' (Paling stabil)
-    seed = random.randint(1, 999999)
-    # Gunakan prompt yang sangat spesifik
-    prompt = f"cinematic sports photography, {clean_query}, premiere league stadium background, dynamic lighting, 4k, realistic, no text"
-    safe_prompt = prompt.replace(" ", "%20")
+    # 1. Cari Keyword di Title
+    for key, url_list in KEYWORD_IMAGE_POOL.items():
+        if key in title_lower:
+            # TEKNIK 3: POOLING (Pilih 1 dari banyak opsi)
+            selected_url = random.choice(url_list)
+            print(f"      📸 Matched Pool: '{key}'")
+            break
+            
+    # 2. Jika tidak ada di title, cek keyword dari AI
+    if not selected_url and keyword:
+        kw_lower = keyword.lower()
+        if kw_lower in KEYWORD_IMAGE_POOL:
+            selected_url = random.choice(KEYWORD_IMAGE_POOL[kw_lower])
+
+    # 3. Fallback Generic
+    if not selected_url:
+        print("      ⚠️ Using Generic Pool")
+        selected_url = random.choice(KEYWORD_IMAGE_POOL["generic"])
     
-    ai_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model=flux&seed={seed}"
-    
-    # Coba download AI
-    if download_image_from_url(ai_url, filename):
+    # 4. Download & Modifikasi
+    if download_and_make_unique(selected_url, filename):
         return f"/images/{filename}"
-    
-    print("      ⚠️ AI Image Failed/Rate Limited. Switching to HD Backup...")
-    
-    # 2. JIKA AI GAGAL -> PAKAI STOK FOTO ASLI (Random)
-    # Ini memastikan website TIDAK PERNAH tampil jelek
-    backup_url = random.choice(BACKUP_REAL_PHOTOS)
-    
-    # Coba download Backup
-    if download_image_from_url(backup_url, filename):
-         return f"/images/{filename}"
-         
-    # 3. Last Resort (Kalau internet parah banget)
-    return backup_url
+        
+    return selected_url # Fallback URL mentah jika download gagal
 
 # ==========================================
-# 🧠 MEGA-PROMPT ENGINE
+# 🧠 CONTENT ENGINE
 # ==========================================
 def get_article_blueprint(title, summary):
     text = (title + " " + summary).lower()
     if any(x in text for x in ['transfer', 'sign', 'bid', 'fee', 'contract']):
-        return "TRANSFER_SAGA", """
-        **SECTION 1 GUIDE: FINANCIALS**
-        - H2 Requirement: Unique headline about Money/Cost.
-          - H3: Wages/Fee breakdown (Markdown Table Required).
-          - H3: Contract clauses.
-        **SECTION 2 GUIDE: ANALYSIS**
-        - H2 Requirement: Unique headline about Skills.
-          - H3: Strengths analysis.
-          - H3: Weaknesses.
-        **SECTION 3 GUIDE: TACTICS**
-        - H2 Requirement: Unique headline about Team Fit.
-          - H3: Manager's plan.
-        **SECTION 4 GUIDE: VERDICT**
-        - H2 Requirement: Unique closing headline.
-          - H3: Final rating.
-        """
-    elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight']):
-        return "MATCH_DEEP_DIVE", """
-        **SECTION 1 GUIDE: NARRATIVE**
-        - H2 Requirement: Dramatic match headline.
-          - H3: Context vs Reality.
-        **SECTION 2 GUIDE: TACTICS**
-        - H2 Requirement: Unique tactical battle headline.
-          - H3: Midfield/Defense analysis.
-        **SECTION 3 GUIDE: KEY MOMENTS**
-        - H2 Requirement: Turning point headline.
-          - H3: Goals/VAR.
-        **SECTION 4 GUIDE: DATA**
-        - H2 Requirement: Stats headline.
-          - H3: Ratings Table (Markdown).
-        """
+        return "TRANSFER_SAGA", "**SECTION 1: FINANCIALS**\n- H2: Cost Analysis\n- H3: Wages Table (Markdown)\n**SECTION 2: PLAYER**\n- H2: Skills\n**SECTION 3: TACTICS**\n- H2: Fit\n**SECTION 4: VERDICT**\n- H2: Rating"
+    elif any(x in text for x in ['vs', 'win', 'loss', 'score']):
+        return "MATCH_DEEP_DIVE", "**SECTION 1: STORY**\n- H2: Narrative\n**SECTION 2: TACTICS**\n- H2: Battle\n**SECTION 3: MOMENTS**\n- H2: Turning Point\n**SECTION 4: STATS**\n- H2: Data Table"
     else:
-        return "EDITORIAL_FEATURE", """
-        **SECTION 1 GUIDE: CONTEXT**
-        - H2 Requirement: History/Background headline.
-          - H3: Timeline.
-        **SECTION 2 GUIDE: DEEP DIVE**
-        - H2 Requirement: Core issue headline.
-          - H3: Data/Facts (Table Required).
-        **SECTION 3 GUIDE: OPINION**
-        - H2 Requirement: Reaction headline.
-          - H3: Fans/Experts view.
-        **SECTION 4 GUIDE: FUTURE**
-        - H2 Requirement: Prediction headline.
-          - H3: Impact.
-        """
+        return "EDITORIAL_FEATURE", "**SECTION 1: CONTEXT**\n- H2: Background\n**SECTION 2: ANALYSIS**\n- H2: Deep Dive (Table)\n**SECTION 3: REACTION**\n- H2: Opinion\n**SECTION 4: FUTURE**\n- H2: Impact"
 
 def clean_json_response(content):
     content = re.sub(r'```json\s*', '', content)
@@ -300,108 +299,77 @@ def get_groq_article_json(title, summary, link, author_name):
     blueprint_type, blueprint_structure = get_article_blueprint(title, summary)
     
     system_prompt = f"""
-    You are {author_name}, a senior sports journalist.
-    DATE: {current_date}.
-    MISSION: Write a 1500-WORD Deep Dive. Output VALID JSON.
-    
-    ⛔ FORBIDDEN WORDS IN HEADERS:
-    - "Section", "Introduction", "Conclusion", "Verdict", "Analysis".
-    
-    ✅ MANDATORY HEADER RULES:
-    - Every H2 and H3 must be creative, specific, and catchy.
-    
-    STRUCTURE GUIDE:
-    {blueprint_structure}
-    
-    JSON OUTPUT FORMAT:
-    {{
-        "title": "Viral Headline",
-        "description": "SEO Description",
-        "category": "Pick one: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
-        "main_keyword": "Entity for image",
-        "tags": ["tag1", "tag2"],
-        "content_body": "Full Markdown content with UNIQUE H2/H3 headers."
-    }}
+    You are {author_name}, a sports journalist. DATE: {current_date}.
+    Write a 1500-WORD Article. VALID JSON Output.
+    NO Generic Headers (Section 1 etc). Make H2/H3 creative.
+    Structure: {blueprint_structure}
+    JSON: {{ "title": "Headline", "description": "SEO Desc", "category": "Category", "main_keyword": "Entity", "tags": [], "content_body": "Markdown" }}
     """
-    user_prompt = f"TOPIC: {title}\nDETAILS: {summary}\nSOURCE: {link}\nExecute the blueprint."
-
+    
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
             print(f"      🤖 AI Writing ({author_name})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Topic: {title}\nDetails: {summary}\nLink: {link}"}],
                 temperature=0.75, max_tokens=8000, response_format={"type": "json_object"}
             )
             return clean_json_response(completion.choices[0].message.content)
-        except Exception as e:
-            print(f"      ⚠️ Groq Error: {e}")
-            time.sleep(3)
-            continue
+        except Exception: time.sleep(2)
     return None
 
 # ==========================================
-# 🏁 MAIN LOOP
+# 🏁 MAIN
 # ==========================================
 def main():
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    total_generated = 0
-    print(f"🔥 STARTING ENGINE (Robust Images & Fixed Folder)...")
+    print(f"🔥 STARTING ENGINE (UNIQUE IMAGE MODE)...")
 
     for source_name, rss_url in RSS_SOURCES.items():
-        print(f"\n📡 Fetching Source: {source_name}...")
+        print(f"\n📡 Source: {source_name}")
         feed = fetch_rss_feed(rss_url)
-        if not feed or not feed.entries: continue
+        if not feed: continue
 
-        cat_success_count = 0
+        cat_count = 0
         for entry in feed.entries:
-            if cat_success_count >= TARGET_PER_SOURCE: break
-
+            if cat_count >= TARGET_PER_SOURCE: break
+            
             clean_title = entry.title.split(" - ")[0]
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
-
             if os.path.exists(f"{CONTENT_DIR}/{filename}"): continue
             
-            current_author = random.choice(AUTHOR_PROFILES)
-            print(f"   ⚡ Processing: {clean_title[:40]}...")
+            print(f"   ⚡ {clean_title[:30]}...")
             
-            # 1. GENERATE TEXT
-            raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, current_author)
+            # 1. Text
+            raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, random.choice(AUTHOR_PROFILES))
             if not raw_json: continue
             try: data = json.loads(raw_json)
             except: continue
 
-            if data.get('category') not in VALID_CATEGORIES:
-                data['category'] = "International"
-
-            # 2. GENERATE IMAGE (ROBUST MODE)
-            img_name = f"{slug}.webp"
+            # 2. Unique Image
             keyword = data.get('main_keyword') or clean_title
-            final_img = get_best_image(keyword, img_name)
+            final_img = get_unique_image(clean_title, keyword, f"{slug}.webp")
             
-            # 3. INJECT LINKS
+            # 3. Links
             links_md = get_internal_links_markdown()
             final_body = inject_links_in_middle(data['content_body'], links_md)
-
-            # 4. SAVE (WITH FEATURED PARAM)
-            date_now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
             
-            # Tambahkan featured: true secara acak agar homepage tidak bosan
+            # 4. Save
             is_featured = "true" if random.random() > 0.7 else "false"
+            if data.get('category') not in VALID_CATEGORIES: data['category'] = "International"
             
             md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
-date: {date_now}
-author: "{current_author.split('(')[0].strip()}"
+date: {datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")}
+author: "{data.get('author', 'Editor')}"
 categories: ["{data['category']}"]
 tags: {json.dumps(data.get('tags', []))}
 featured_image: "{final_img}"
-featured_image_alt: "{keyword}"
 description: "{data['description'].replace('"', "'")}"
 slug: "{slug}"
 draft: false
@@ -412,24 +380,18 @@ weight: {random.randint(1, 10)}
 {final_body}
 
 ---
-*Reference: Analysis based on reports from [{source_name}]({entry.link}). Content generated for informational purposes.*
+*Reference: Analysis based on reports from [{source_name}]({entry.link}).*
 """
-            with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
-                f.write(md_content)
-            
+            with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f: f.write(md_content)
             save_link_to_memory(data['title'], slug)
-            
-            print(f"      ✅ Published: {CONTENT_DIR}/{filename}")
             
             full_url = f"{WEBSITE_URL}/articles/{slug}/"
             submit_to_indexnow(full_url)
             submit_to_google(full_url)
+            print(f"      ✅ DONE: {filename}")
             
-            cat_success_count += 1
-            total_generated += 1
-            time.sleep(5)
-
-    print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
+            cat_count += 1
+            time.sleep(3)
 
 if __name__ == "__main__":
     main()
