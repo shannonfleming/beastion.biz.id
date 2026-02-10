@@ -1,115 +1,139 @@
 {{ define "main" }}
-<!-- 1. CONTAINER UTAMA (Ukuran pas: max-w-6xl) -->
+<!-- 1. WRAPPER UTAMA -->
+<!-- Kita gunakan max-w-6xl (1152px) agar pas: Tidak terlalu lebar, tidak sempit -->
 <div class="container mx-auto px-4 py-8 max-w-6xl">
 
-    <!-- 2. LAYOUT: Flexbox (Kiri Konten, Kanan Sidebar) -->
-    <div class="flex flex-col lg:flex-row gap-10">
+    <!-- 2. LAYOUT FLEXBOX (Paling Stabil) -->
+    <!-- Mobile: Kolom (Atas-Bawah). Desktop: Baris (Kiri-Kanan) -->
+    <div class="flex flex-col lg:flex-row gap-10 items-start">
 
         <!-- ==========================
-             KOLOM KIRI: ARTIKEL (Lebar Otomatis Sisa Ruang)
+             KOLOM KIRI: KONTEN (66% - 70%)
              ========================== -->
-        <main class="w-full lg:flex-1 min-w-0">
+        <!-- w-full di mobile, w-8/12 (dua pertiga) di desktop -->
+        <article class="w-full lg:w-8/12 bg-white min-w-0">
             
             <!-- Breadcrumb -->
-            <nav class="text-sm text-gray-500 mb-4 font-bold">
+            <nav class="text-sm text-gray-500 mb-4 font-bold uppercase tracking-wide">
                 <a href="/" class="hover:text-red-600">Home</a> 
                 <span class="mx-2">/</span>
+                <!-- Mengambil kategori pertama jika ada -->
+                {{ if .Params.categories }}
+                <a href="/categories/{{ index .Params.categories 0 | urlize }}" class="hover:text-red-600">{{ index .Params.categories 0 }}</a>
+                <span class="mx-2">/</span>
+                {{ end }}
                 <span class="text-gray-900">{{ .Title }}</span>
             </nav>
 
-            <!-- Judul & Meta -->
+            <!-- Judul Artikel -->
             <header class="mb-6 border-b border-gray-200 pb-6">
-                {{ if .Params.categories }}
-                <span class="text-red-600 font-bold uppercase text-xs tracking-wider mb-2 block">
-                    {{ index .Params.categories 0 }}
-                </span>
-                {{ end }}
-                <h1 class="text-3xl lg:text-4xl font-black text-gray-900 leading-tight mb-3">
+                <h1 class="text-3xl lg:text-4xl font-black text-gray-900 leading-tight mb-4">
                     {{ .Title }}
                 </h1>
-                <div class="text-xs text-gray-500">
-                    By <strong>{{ .Params.author | default "Admin" }}</strong> • {{ .Date.Format "Jan 02, 2006" }}
+                <div class="flex items-center text-xs text-gray-500 gap-3 font-mono">
+                    <span class="font-bold text-gray-900 uppercase">By {{ .Params.author | default "Beastion Team" }}</span>
+                    <span>•</span>
+                    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 02, 2006" }}</time>
                 </div>
             </header>
 
-            <!-- GAMBAR UTAMA (Wajib pakai absURL) -->
-            {{ if .Params.featured_image }}
-            <figure class="mb-8 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                <img src="{{ .Params.featured_image | absURL }}" 
+            <!-- GAMBAR UTAMA (LOGIC FIX) -->
+            <!-- Kita cek 'featured_image' ATAU 'image' untuk jaga-jaga -->
+            {{ $img := .Params.featured_image | default .Params.image }}
+            {{ if $img }}
+            <figure class="mb-8 w-full h-auto rounded-lg overflow-hidden shadow-sm border border-gray-100">
+                <!-- absURL adalah kunci agar gambar muncul dari folder static -->
+                <img src="{{ $img | absURL }}" 
                      alt="{{ .Title }}" 
                      class="w-full h-auto object-cover">
             </figure>
             {{ end }}
 
-            <!-- IKLAN ATAS -->
+            <!-- IKLAN ATAS (Responsive) -->
             <div class="my-6 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
                 <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                <!-- Script AdSense Anda -->
+                <!-- Script AdSense Display -->
                 <div class="h-[100px] flex items-center justify-center text-gray-300 text-xs">
-                    Slot Iklan Responsive
+                    Slot Iklan Atas
                 </div>
             </div>
 
             <!-- KONTEN -->
-            <article class="prose prose-lg prose-red max-w-none text-gray-800">
+            <div class="prose prose-lg prose-red max-w-none text-gray-800 leading-relaxed">
                 {{ .Content }}
-            </article>
+            </div>
 
-            <!-- IKLAN BAWAH -->
-            <div class="mt-8 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
+            <!-- IKLAN BAWAH (Multiplex) -->
+            <div class="mt-10 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
                 <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
                 <!-- Script AdSense Multiplex -->
                 <div class="h-[250px] flex items-center justify-center text-gray-300 text-xs">
-                    Slot Iklan Multiplex
+                    Slot Iklan Bawah
                 </div>
             </div>
 
-        </main>
+        </article>
 
         <!-- ==========================
-             KOLOM KANAN: SIDEBAR (Lebar Tetap: 320px - 350px)
+             KOLOM KANAN: SIDEBAR (30% - 33%)
              ========================== -->
-        <!-- lg:w-[350px] memastikan sidebar tidak terlalu lebar/sempit -->
-        <aside class="w-full lg:w-[350px] shrink-0 space-y-8">
+        <!-- w-full di mobile, w-4/12 (sepertiga) di desktop -->
+        <aside class="w-full lg:w-4/12 space-y-8">
             
-            <!-- Sticky agar ikut scroll -->
+            <!-- Sticky Wrapper -->
             <div class="sticky top-24">
 
-                <!-- WIDGET IKLAN (Wajib Muncul) -->
-                <div class="bg-white border border-gray-200 p-4 rounded shadow-sm flex flex-col items-center">
+                <!-- 1. WIDGET IKLAN SIDEBAR -->
+                <div class="flex flex-col items-center mb-8 bg-white border border-gray-200 p-4 rounded shadow-sm">
                     <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
-                    <!-- Script AdSense Vertical -->
+                    <!-- Iklan Vertical 300x600 -->
                     <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                        Vertical Ad 300x600
+                        AdSense Vertical 300x600
                     </div>
                 </div>
 
-                <!-- WIDGET BERITA TERBARU -->
-                <div class="bg-white border border-gray-200 rounded shadow-sm p-5 mt-6">
-                    <h3 class="font-bold text-gray-900 uppercase border-l-4 border-red-600 pl-3 mb-4 text-sm">
-                        Latest News
+                <!-- 2. WIDGET LATEST NEWS -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+                    <h3 class="font-black text-gray-900 uppercase border-l-4 border-red-600 pl-3 mb-4 text-sm">
+                        Latest Updates
                     </h3>
-                    <div class="flex flex-col gap-4">
+                    <div class="flex flex-col gap-5">
+                        <!-- Logic: Ambil 5 halaman terbaru (RegularPages) -->
                         {{ range first 5 .Site.RegularPages }}
-                        <a href="{{ .Permalink }}" class="flex gap-3 group">
-                            <div class="w-16 h-16 bg-gray-100 shrink-0 overflow-hidden rounded">
-                                {{ if .Params.featured_image }}
-                                <img src="{{ .Params.featured_image | absURL }}" class="w-full h-full object-cover group-hover:opacity-80 transition">
+                        <a href="{{ .Permalink }}" class="flex gap-3 group items-start">
+                            <!-- Thumbnail Kecil -->
+                            <div class="w-16 h-16 bg-gray-100 shrink-0 overflow-hidden rounded border border-gray-100">
+                                {{ $thumb := .Params.featured_image | default .Params.image }}
+                                {{ if $thumb }}
+                                <img src="{{ $thumb | absURL }}" class="w-full h-full object-cover group-hover:opacity-80 transition">
                                 {{ end }}
                             </div>
+                            <!-- Judul -->
                             <div>
-                                <h4 class="text-sm font-bold text-gray-900 leading-snug group-hover:text-red-600 line-clamp-2">
+                                <h4 class="text-sm font-bold text-gray-900 leading-tight group-hover:text-red-600 line-clamp-2">
                                     {{ .Title }}
                                 </h4>
+                                <span class="text-[10px] text-gray-400 mt-1 block">{{ .Date.Format "Jan 02" }}</span>
                             </div>
                         </a>
                         {{ end }}
                     </div>
                 </div>
 
+                <!-- 3. WIDGET KATEGORI -->
+                <div class="mt-6 bg-gray-900 text-white rounded-lg p-5">
+                    <h3 class="font-bold uppercase text-red-500 mb-4 text-sm">Popular Categories</h3>
+                    <ul class="space-y-2 text-sm">
+                        <!-- Sesuaikan link ini dengan struktur config.yaml Anda -->
+                        <li><a href="/categories/premier-league" class="block py-1 hover:text-red-400 border-b border-gray-800">Premier League</a></li>
+                        <li><a href="/categories/champions-league" class="block py-1 hover:text-red-400 border-b border-gray-800">Champions League</a></li>
+                        <li><a href="/categories/transfer-news" class="block py-1 hover:text-red-400 border-b border-gray-800">Transfer News</a></li>
+                    </ul>
+                </div>
+
             </div>
         </aside>
 
-    </div>
+    </div> <!-- End Flex -->
 </div>
 {{ end }}
