@@ -1,81 +1,90 @@
 {{ define "main" }}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8 max-w-7xl">
 
-    <!-- PERBAIKAN: Ambil Semua Regular Pages (Posts/News/Articles) -->
-    <!-- Logika: Ambil semua halaman, urutkan dari yang terbaru -->
-    {{ $news := .Site.RegularPages.ByDate.Reverse }}
+    <!-- ====================================================================== -->
+    <!-- LOGIC FIX: HANYA AMBIL BERITA (POSTS) -->
+    <!-- ====================================================================== -->
+    <!-- Kita filter agar halaman About, Contact, Privacy TIDAK IKUT MUNCUL -->
+    {{ $news := where .Site.RegularPages "Section" "posts" }}
+    {{ $news := $news.ByDate.Reverse }}
 
-    <!-- DEBUGGING: Jika konten kosong, tampilkan pesan error ini -->
+    <!-- DEBUG ALERT: Jika artikel berita masih kosong -->
     {{ if eq (len $news) 0 }}
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-        <strong class="font-bold">Error!</strong>
-        <span class="block sm:inline">Belum ada artikel yang ditemukan. Pastikan script Python sudah dijalankan dan file .md ada di folder content/posts.</span>
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <strong>Belum ada artikel berita.</strong>
+                    <br>Postingan "About Us" atau "Contact" disembunyikan dari sini. 
+                    Silakan jalankan script Python Anda untuk mengisi berita.
+                </p>
+            </div>
+        </div>
     </div>
     {{ end }}
 
     <!-- ====================================================================== -->
-    <!-- BAGIAN 1: HERO SECTION (LCP ELEMENT - WAJIB CEPAT!) -->
+    <!-- BAGIAN 1: HERO SECTION (HEADLINE) -->
     <!-- ====================================================================== -->
     {{ if gt (len $news) 0 }}
     <section class="mb-12">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <!-- Main Headline (Artikel Pertama) -->
+            <!-- Main Headline (Artikel Ke-1) -->
             {{ range first 1 $news }}
-            <div class="lg:col-span-2 group relative overflow-hidden rounded-2xl shadow-xl h-[400px] md:h-[500px]">
+            <div class="lg:col-span-2 group relative overflow-hidden rounded-2xl shadow-lg h-[400px] md:h-[500px]">
                 <a href="{{ .Permalink }}" class="block h-full">
+                    {{ if .Params.featured_image }}
                     <img src="{{ .Params.featured_image | absURL }}" 
                          alt="{{ .Title }}" 
-                         width="1200" height="675"
-                         loading="eager" 
-                         fetchpriority="high"
-                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                         loading="eager">
+                    {{ else }}
+                    <div class="w-full h-full bg-gray-900 flex items-center justify-center text-white">No Image</div>
+                    {{ end }}
                     
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
                     <div class="absolute bottom-0 left-0 p-6 md:p-8 w-full">
                         {{ if .Params.categories }}
-                        <span class="inline-block bg-red-600 text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-sm mb-3">
+                        <span class="inline-block bg-red-600 text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded mb-3">
                             {{ index .Params.categories 0 }}
                         </span>
                         {{ end }}
                         <h1 class="text-2xl md:text-4xl lg:text-5xl font-black text-white leading-tight mb-3 group-hover:text-red-500 transition-colors">
                             {{ .Title }}
                         </h1>
-                        <p class="text-gray-300 line-clamp-2 text-sm md:text-base max-w-2xl hidden md:block">
-                            {{ .Summary }}
-                        </p>
-                        <div class="mt-4 text-xs text-gray-400 font-bold uppercase tracking-wide">
-                            {{ .Date.Format "Jan 02, 2006" }} • {{ .Params.author | default "Editor" }}
+                        <div class="flex items-center gap-3 text-xs text-gray-300 font-bold uppercase tracking-wide">
+                            <span>{{ .Date.Format "Jan 02, 2006" }}</span>
+                            <span class="w-1 h-1 bg-red-500 rounded-full"></span>
+                            <span>{{ .Params.author | default "Editor" }}</span>
                         </div>
                     </div>
                 </a>
             </div>
             {{ end }}
 
-            <!-- Side List (4 Artikel Berikutnya) -->
-            <div class="lg:col-span-1 flex flex-col gap-4 h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+            <!-- Side List (Artikel Ke-2 sampai Ke-5) -->
+            <div class="lg:col-span-1 flex flex-col gap-4 h-[500px] overflow-y-auto pr-1">
                 {{ range first 4 (after 1 $news) }}
-                <article class="flex gap-3 group bg-white p-3 rounded-lg shadow-sm border border-gray-100 hover:border-red-100 transition h-full">
-                    <a href="{{ .Permalink }}" class="shrink-0 overflow-hidden rounded-md w-24 h-24 relative">
+                <article class="flex gap-3 group bg-white p-3 rounded-lg shadow-sm border border-gray-100 hover:border-red-200 transition h-full">
+                    <a href="{{ .Permalink }}" class="shrink-0 overflow-hidden rounded-md w-24 h-24 relative bg-gray-100">
                         {{ if .Params.featured_image }}
                         <img src="{{ .Params.featured_image | absURL }}" 
                              alt="{{ .Title }}" 
-                             loading="lazy"
-                             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
-                        {{ else }}
-                        <div class="w-full h-full bg-gray-200 flex items-center justify-center text-[8px]">No Img</div>
+                             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                             loading="lazy">
                         {{ end }}
                     </a>
                     <div class="flex flex-col justify-center">
-                        {{ if .Params.categories }}
-                        <span class="text-[9px] font-bold text-red-600 uppercase mb-1 tracking-wider">
-                            {{ index .Params.categories 0 }}
-                        </span>
-                        {{ end }}
-                        <a href="{{ .Permalink }}" class="font-bold text-sm leading-snug text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2 font-display">
+                        <a href="{{ .Permalink }}" class="font-bold text-sm leading-snug text-gray-900 group-hover:text-red-600 transition-colors line-clamp-2">
                             {{ .Title }}
                         </a>
-                        <span class="text-[10px] text-gray-400 mt-1 font-medium">
+                        <span class="text-[10px] text-gray-400 mt-2 font-medium">
                             {{ .Date.Format "Jan 02" }}
                         </span>
                     </div>
@@ -89,6 +98,7 @@
     <!-- ====================================================================== -->
     <!-- BAGIAN 2: MUST READ (Grid 3 Kolom) -->
     <!-- ====================================================================== -->
+    <!-- Hanya muncul jika ada lebih dari 5 artikel -->
     {{ if gt (len $news) 5 }}
     <section class="mb-16">
         <div class="flex items-center gap-3 mb-6 border-b border-gray-200 pb-2">
@@ -98,23 +108,21 @@
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {{ range first 3 (after 5 $news) }}
-            <a href="{{ .Permalink }}" class="group relative h-64 rounded-xl overflow-hidden shadow-md block">
+            <a href="{{ .Permalink }}" class="group relative h-64 rounded-xl overflow-hidden shadow-md block bg-gray-900">
                 {{ if .Params.featured_image }}
                 <img src="{{ .Params.featured_image | absURL }}" 
                      alt="{{ .Title }}" 
-                     loading="lazy"
-                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
-                {{ else }}
-                <div class="w-full h-full bg-gray-800"></div>
+                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
+                     loading="lazy">
                 {{ end }}
-                <div class="absolute inset-0 bg-black/60 group-hover:bg-black/50 transition-colors"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                 <div class="absolute bottom-0 left-0 p-5 w-full">
                     {{ if .Params.categories }}
                     <span class="text-[10px] text-red-400 font-bold uppercase tracking-wider mb-1 block">
                         {{ index .Params.categories 0 }}
                     </span>
                     {{ end }}
-                    <h3 class="text-white font-bold text-lg leading-snug group-hover:underline decoration-red-500 underline-offset-4 line-clamp-2">
+                    <h3 class="text-white font-bold text-lg leading-snug line-clamp-2">
                         {{ .Title }}
                     </h3>
                 </div>
@@ -125,67 +133,27 @@
     {{ end }}
 
     <!-- ====================================================================== -->
-    <!-- BAGIAN 3: SPLIT FOCUS (Artikel Besar) -->
+    <!-- BAGIAN 3: LATEST NEWS GRID (Sisa Artikel) -->
     <!-- ====================================================================== -->
+    <!-- Hanya muncul jika ada lebih dari 8 artikel -->
     {{ if gt (len $news) 8 }}
-    <section class="mb-16">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {{ range first 2 (after 8 $news) }}
-            <article class="group">
-                <a href="{{ .Permalink }}" class="block overflow-hidden rounded-xl mb-4 shadow-lg aspect-[16/9] relative">
-                    {{ if .Params.featured_image }}
-                    <img src="{{ .Params.featured_image | absURL }}" 
-                         alt="{{ .Title }}" 
-                         loading="lazy"
-                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
-                    {{ end }}
-                </a>
-                <div class="flex flex-col">
-                    <div class="flex items-center gap-2 mb-2">
-                         {{ if .Params.categories }}
-                        <span class="bg-gray-100 text-gray-800 px-2 py-0.5 text-[10px] font-bold uppercase rounded">
-                            {{ index .Params.categories 0 }}
-                        </span>
-                        {{ end }}
-                        <span class="text-xs text-gray-400 font-medium">{{ .Date.Format "Jan 02, 2006" }}</span>
-                    </div>
-                    <h2 class="text-2xl font-black text-gray-900 mb-2 leading-tight group-hover:text-red-600 transition-colors">
-                        <a href="{{ .Permalink }}">{{ .Title }}</a>
-                    </h2>
-                    <p class="text-gray-600 text-sm line-clamp-3">
-                        {{ .Summary | truncate 150 }}
-                    </p>
-                </div>
-            </article>
-            {{ end }}
-        </div>
-    </section>
-    {{ end }}
-
-    <!-- ====================================================================== -->
-    <!-- BAGIAN 4: LATEST NEWS (Grid Kecil) -->
-    <!-- ====================================================================== -->
     <section>
         <div class="flex items-center justify-between mb-8 border-b border-gray-200 pb-4">
             <h2 class="text-2xl font-black uppercase tracking-tighter text-gray-900 flex items-center gap-2">
                 <span class="text-red-600 text-3xl">/</span> More Headlines
             </h2>
-            <a href="/posts" aria-label="View all news archives" class="text-xs font-bold bg-black text-white px-4 py-2 rounded-full hover:bg-red-600 transition uppercase tracking-widest">
-                View Archive
-            </a>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
-            {{ range first 12 (after 10 $news) }}
-            <article class="group flex flex-col h-full border-b border-gray-100 pb-6 md:border-none md:pb-0">
-                <a href="{{ .Permalink }}" aria-label="Read full article: {{ .Title }}" class="block overflow-hidden rounded-lg mb-3 shadow-sm relative aspect-[3/2]">
+            <!-- Menampilkan artikel ke-9 sampai ke-20 -->
+            {{ range first 12 (after 8 $news) }}
+            <article class="group flex flex-col h-full">
+                <a href="{{ .Permalink }}" class="block overflow-hidden rounded-lg mb-3 shadow-sm relative aspect-[3/2] bg-gray-100">
                     {{ if .Params.featured_image }}
                     <img src="{{ .Params.featured_image | absURL }}" 
                          alt="{{ .Title }}" 
-                         loading="lazy"
-                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
-                    {{ else }}
-                    <div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">NO IMAGE</div>
+                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                         loading="lazy">
                     {{ end }}
                 </a>
                 
@@ -198,20 +166,21 @@
                         {{ end }}
                     </div>
                     
-                    <h3 class="font-display font-bold text-base leading-snug text-gray-900 group-hover:text-red-600 transition-colors mb-2 line-clamp-3">
+                    <h3 class="font-bold text-base leading-snug text-gray-900 group-hover:text-red-600 transition-colors mb-2 line-clamp-3">
                         <a href="{{ .Permalink }}">
                             {{ .Title }}
                         </a>
                     </h3>
                     
-                    <div class="mt-auto pt-2 flex items-center text-[10px] text-gray-400 font-medium uppercase tracking-wide">
-                        <span>{{ .Date.Format "Jan 02" }}</span>
+                    <div class="mt-auto pt-2 text-[10px] text-gray-400 font-medium uppercase tracking-wide">
+                        {{ .Date.Format "Jan 02, 2006" }}
                     </div>
                 </div>
             </article>
             {{ end }}
         </div>
     </section>
+    {{ end }}
 
 </div>
 {{ end }}
