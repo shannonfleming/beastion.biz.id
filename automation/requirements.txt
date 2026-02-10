@@ -1,7 +1,8 @@
 requests
 feedparser
-python-slugify
-Pillow
 groq
-oauth2client
+Pillow
+pytz
+python-slugify
 google-api-python-client
+oauth2client
