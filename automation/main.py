@@ -23,12 +23,12 @@ try:
     GOOGLE_LIBS_AVAILABLE = True
 except ImportError:
     GOOGLE_LIBS_AVAILABLE = False
+    print("⚠️ Google Indexing Libs not found. Install: pip install google-api-python-client oauth2client")
 
 # ==========================================
 # ⚙️ CONFIGURATION & SETUP
 # ==========================================
 
-# Ambil API Key
 GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "") 
 GROQ_API_KEYS = [k.strip() for k in GROQ_KEYS_RAW.split(",") if k.strip()]
 
@@ -40,11 +40,11 @@ if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
-# TIM PENULIS (Persona Profesional)
+# TIM PENULIS (Persona Spesialis - Meningkatkan E-E-A-T AdSense)
 AUTHOR_PROFILES = [
-    "Dave Harsya (Senior Analyst)", "Sarah Jenkins (Chief Editor)",
-    "Luca Romano (Transfer Specialist)", "Marcus Reynolds (Premier League Correspondent)",
-    "Elena Petrova (Tactical Expert)", "Ben Foster (Sports Journalist)"
+    "Dave Harsya (Tactical Analyst)", "Sarah Jenkins (Senior Editor)",
+    "Luca Romano (Market Expert)", "Marcus Reynolds (League Correspondent)",
+    "Ben Foster (Data Journalist)"
 ]
 
 VALID_CATEGORIES = [
@@ -59,19 +59,17 @@ RSS_SOURCES = {
     "The Guardian": "https://www.theguardian.com/football/rss"
 }
 
-# Direktori
 CONTENT_DIR = "content/articles" 
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 TARGET_PER_SOURCE = 1 
 
-# Unsplash ID Pool (Backup jika AI Gagal)
+# Unsplash ID Pool (Backup Image yang Aman)
 UNSPLASH_IDS = [
     "1522778119026-d647f0565c6a", "1489944440615-453fc2b6a9a9", "1431324155629-1a6deb1dec8d", 
     "1579952363873-27f3bde9be2b", "1518091043644-c1d4457512c6", "1508098682722-e99c43a406b2",
-    "1574629810360-7efbbe195018", "1577223625816-7546f13df25d", "1624880357913-a85cbdec04ca",
-    "1516246844974-e39556ee0945", "1627341852895-467406c55cc0", "1628891544265-2766863640b3"
+    "1574629810360-7efbbe195018", "1577223625816-7546f13df25d", "1624880357913-a85cbdec04ca"
 ]
 
 # ==========================================
@@ -106,40 +104,62 @@ def fetch_rss_feed(url):
     except: return None
 
 # ==========================================
-# 🎨 HYBRID IMAGE ENGINE (AI + BACKUP)
+# 🚀 INDEXING FUNCTIONS (AKTIF)
+# ==========================================
+def submit_to_indexnow(url):
+    try:
+        endpoint = "https://api.indexnow.org/indexnow"
+        host = WEBSITE_URL.replace("https://", "").replace("http://", "")
+        data = {
+            "host": host,
+            "key": INDEXNOW_KEY,
+            "keyLocation": f"https://{host}/{INDEXNOW_KEY}.txt",
+            "urlList": [url]
+        }
+        requests.post(endpoint, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}, timeout=5)
+        print(f"      🚀 IndexNow Submitted")
+    except Exception as e:
+        print(f"      ⚠️ IndexNow Failed: {e}")
+
+def submit_to_google(url):
+    if not GOOGLE_JSON_KEY or not GOOGLE_LIBS_AVAILABLE: return
+    try:
+        creds_dict = json.loads(GOOGLE_JSON_KEY)
+        SCOPES = ["https://www.googleapis.com/auth/indexing"]
+        credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPES)
+        service = build("indexing", "v3", credentials=credentials)
+        body = {"url": url, "type": "URL_UPDATED"}
+        service.urlNotifications().publish(body=body).execute()
+        print(f"      🚀 Google Indexing Submitted")
+    except Exception as e:
+        print(f"      ⚠️ Google Indexing Error: {e}")
+
+# ==========================================
+# 🎨 HYBRID IMAGE ENGINE (High Quality)
 # ==========================================
 def apply_heavy_modification(img):
-    """Memodifikasi gambar backup agar dianggap unik oleh Google"""
-    # 1. Flip Horizontal (50% chance)
     if random.random() > 0.5:
         img = ImageOps.mirror(img)
-
-    # 2. Color Grading Random
     enhancer = ImageEnhance.Color(img)
     img = enhancer.enhance(random.uniform(0.85, 1.25)) 
     enhancer_c = ImageEnhance.Contrast(img)
     img = enhancer_c.enhance(random.uniform(0.9, 1.1))
-
-    # 3. Vignette Effect (Gelap di sudut)
+    
     width, height = img.size
     vignette = Image.new('L', (width, height), 0)
     from PIL import ImageDraw
     draw = ImageDraw.Draw(vignette)
-    # Lingkaran putih di tengah, hitam di pinggir
     draw.ellipse((30, 30, width-30, height-30), fill=255)
-    vignette = vignette.filter(ImageFilter.GaussianBlur(120))
-    # Gabungkan layer
-    img = ImageOps.colorize(vignette, (20, 20, 20), (255, 255, 255)) 
-    img = Image.composite(img, Image.open(BytesIO(requests.get(img.filename).content) if hasattr(img, 'filename') else img), vignette) # Fallback logic simplified
-
+    vignette = vignette.filter(ImageFilter.GaussianBlur(100))
+    img = ImageOps.colorize(vignette, (10, 10, 10), (255, 255, 255)) 
     return img.resize((1200, 675), Image.Resampling.LANCZOS)
 
 def generate_hybrid_image(query, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
-    
-    # --- STRATEGI 1: AI GENERATION (Flux Realism) ---
     print(f"      🎨 Strategy 1: AI Generating '{query}'...")
-    safe_prompt = f"cinematic shot of {query} football match, stadium atmosphere, realistic lighting, 4k, sports photography --ar 16:9".replace(" ", "%20")
+    
+    # Prompt untuk gambar fotorealistik
+    safe_prompt = f"editorial sports photography of {query}, professional football match, stadium atmosphere, 4k, hyper-realistic --ar 16:9".replace(" ", "%20")
     seed = random.randint(1, 1000000)
     ai_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&model=flux-realism&seed={seed}&nologo=true"
     
@@ -147,15 +167,15 @@ def generate_hybrid_image(query, filename):
         resp = requests.get(ai_url, timeout=40)
         if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
             img = Image.open(BytesIO(resp.content)).convert("RGB")
+            # Sedikit pertajam agar HD
             enhancer = ImageEnhance.Sharpness(img)
-            img = enhancer.enhance(1.2)
+            img = enhancer.enhance(1.3)
             img.save(output_path, "WEBP", quality=85)
             print("      ✅ AI Image Created!")
             return f"/images/{filename}"
-    except Exception as e:
+    except:
         print(f"      ⚠️ AI Failed. Switching to Backup.")
 
-    # --- STRATEGI 2: UNSPLASH POOL + MODIFIKASI ---
     print("      🎨 Strategy 2: Unsplash Pool + Modding")
     selected_id = random.choice(UNSPLASH_IDS)
     unsplash_url = f"https://images.unsplash.com/photo-{selected_id}?auto=format&fit=crop&w=1200&q=80"
@@ -164,125 +184,74 @@ def generate_hybrid_image(query, filename):
         resp = requests.get(unsplash_url, timeout=15)
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
-            img = apply_heavy_modification(img) # Modifikasi agar unik
+            img = apply_heavy_modification(img)
             img.save(output_path, "WEBP", quality=85)
             print("      ✅ Backup Image Saved!")
             return f"/images/{filename}"
     except: pass
     
-    # Fallback terakhir jika semua gagal
     return "https://images.unsplash.com/photo-1522778119026-d647f0565c6a"
 
 # ==========================================
-# 🧠 DEEP CONTENT ENGINE (STRUCTURED)
+# 🧠 QUALITY CONTENT ENGINE (ANTI-HOAX)
 # ==========================================
 
-def get_article_structure(title, summary):
-    """Menentukan struktur artikel agar panjang dan mendalam"""
-    text = (title + " " + summary).lower()
-    
-    if any(x in text for x in ['transfer', 'sign', 'bid', 'contract', 'fee']):
-        return "TRANSFER_DEEP_DIVE", """
-        **SECTION 1: THE DEAL BREAKDOWN**
-        - Detailed context of the transfer rumor/deal.
-        - Financial analysis (Fee, Wages, Contract length).
-        **SECTION 2: PLAYER PROFILE**
-        - Playing style, strengths, and weaknesses.
-        - Statistical comparison with existing squad players (Create a Markdown Table).
-        **SECTION 3: TACTICAL FIT**
-        - How does he fit into the manager's system?
-        - Potential lineup changes.
-        **SECTION 4: VERDICT**
-        - Is it a good deal? Rating out of 10.
-        """
-    elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'draw']):
-        return "MATCH_ANALYSIS", """
-        **SECTION 1: MATCH NARRATIVE**
-        - The story of the game. Key turning points.
-        **SECTION 2: TACTICAL BATTLE**
-        - Formation analysis. Who dominated midfield?
-        - XG (Expected Goals) and possession stats (Create a Markdown Table).
-        **SECTION 3: INDIVIDUAL BRILLIANCE**
-        - Man of the Match analysis.
-        - Player ratings and key performances.
-        **SECTION 4: IMPLICATIONS**
-        - Impact on the league table.
-        - What's next for both managers?
-        """
-    else:
-        return "EDITORIAL_FEATURE", """
-        **SECTION 1: THE BIG PICTURE**
-        - Comprehensive background of the news.
-        - Why this matters right now.
-        **SECTION 2: DATA & FACTS**
-        - Historical context or statistical backing.
-        - Use a Markdown Table to show data.
-        **SECTION 3: EXPERT OPINION**
-        - Analysis of quotes and reactions.
-        - Differing perspectives.
-        **SECTION 4: CONCLUSION**
-        - Future predictions.
-        """
-
 def get_groq_article_json(title, summary, link, author_name):
+    # Tanggal hari ini untuk memastikan AI tidak bingung waktu
     current_date = datetime.now().strftime("%Y-%m-%d")
     
-    # 1. Tentukan Struktur dulu
-    blueprint_type, blueprint_instructions = get_article_structure(title, summary)
-    
+    # SYSTEM PROMPT: Jurnalis Investigasi (Bukan Penulis Fiksi)
     system_prompt = f"""
-    You are {author_name}, a senior sports journalist for 'Sport Daily'.
-    TODAY'S DATE: {current_date}.
+    You are {author_name}, a strict and professional sports journalist.
+    CURRENT DATE: {current_date}.
     
-    TASK: Write a **COMPREHENSIVE, DEEP-DIVE ARTICLE** (Minimum 1200 words).
+    OBJECTIVE: Write a high-quality, 1000-word analysis article based on the provided news snippet.
     
-    BLUEPRINT ({blueprint_type}):
-    {blueprint_instructions}
-    
-    RULES:
-    1. **LENGTH:** Do not summarize. Expand on every point. Use long paragraphs.
-    2. **REALISM:** If match is future -> PREVIEW. If past -> REPORT.
-    3. **FORMAT:** Return VALID JSON.
-    
-    OUTPUT JSON STRUCTURE:
-    {{
-        "title": "Catchy Journalistic Headline",
-        "description": "SEO Meta Description (150 chars)",
-        "category": "Select from {VALID_CATEGORIES}",
-        "main_keyword": "Main entity for image generation",
-        "tags": ["tag1", "tag2", "tag3"],
-        "content_body": "FULL MARKDOWN CONTENT. Use H2, H3, Bold, and Tables."
-    }}
+    🛑 STRICT ANTI-HALLUCINATION RULES:
+    1. **CHECK THE TIMELINE:** If the news mentions a match happening "tomorrow" or "on Sunday", write a **PREVIEW** (Tactical prediction, Lineups). Do NOT invent a final score.
+    2. **NO FAKE QUOTES:** Do not make up quotes. Quote only what is in the snippet or use general analysis phrases like "The manager emphasized...".
+    3. **NO GENERIC HEADERS:**
+       - ❌ BAD: "Section 1", "Introduction", "Conclusion", "Match Analysis".
+       - ✅ GOOD: "How Palmer Dismantled the Defense", "Why the £50m Fee Makes Sense".
+       - Headers MUST be descriptive and unique.
+       
+    STRUCTURE REQUIREMENT:
+    - **Paragraph 1-2 (The Hook):** What happened? Why is it huge?
+    - **Unique H2 Header:** Deep dive into context/history.
+    - **Unique H2 Header:** Stats/Tactical breakdown (Use Markdown Table here).
+    - **Unique H2 Header:** Player/Manager focus.
+    - **Unique H2 Header:** Future implications/Verdict.
+
+    OUTPUT FORMAT:
+    JSON Object keys: "title", "description", "category", "main_keyword", "tags", "content_body".
     """
     
     user_prompt = f"""
-    TOPIC: {title}
-    DETAILS: {summary}
-    SOURCE: {link}
+    SOURCE MATERIAL:
+    - Headline: {title}
+    - Summary: {summary}
+    - Source Link: {link}
     
-    Write the article now following the BLUEPRINT strictly.
+    TASK: Write the article now. Be factual, deep, and use unique headers.
     """
     
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing ({author_name}) - Mode: {blueprint_type}...")
+            print(f"      🤖 AI Writing ({author_name})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.75, # Kreativitas agak tinggi agar tulisan panjang
-                max_tokens=8000,  # Token maksimal
+                temperature=0.6, # Cukup rendah agar faktual dan tidak ngawur
+                max_tokens=8000,
                 response_format={"type": "json_object"}
             )
             return completion.choices[0].message.content
-        except RateLimitError:
-            time.sleep(3)
-        except Exception as e:
-            print(f"      ⚠️ Groq Error: {e}")
-            
+        except RateLimitError: time.sleep(3)
+        except Exception: pass
     return None
 
 # ==========================================
@@ -293,7 +262,7 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: DEEP CONTENT + HYBRID IMAGE MODE")
+    print("🔥 ENGINE STARTED: ANTI-HOAX + QUALITY MODE")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -308,11 +277,13 @@ def main():
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
             
-            if os.path.exists(f"{CONTENT_DIR}/{filename}"): continue
+            # Cek file sudah ada belum
+            if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
+                continue
             
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
-            # 1. Generate Deep Content
+            # 1. Content Generation
             author = random.choice(AUTHOR_PROFILES)
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, author)
             
@@ -323,20 +294,20 @@ def main():
                 print("      ❌ JSON Parse Error")
                 continue
 
-            # 2. Generate Unique Image
+            # 2. Image Generation
             keyword = data.get('main_keyword') or clean_title
             final_img = generate_hybrid_image(keyword, f"{slug}.webp")
             
-            # 3. Internal Linking
+            # 3. Save & Format
             links_md = get_internal_links_markdown()
-            # Inject link di tengah atau akhir artikel
+            # Inject Link di akhir
             body_content = data['content_body'] + "\n\n### Read More\n" + links_md
-
-            # 4. Fallback Category
+            
+            # Fallback Category
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
-            # 5. Save File
+            # Create Markdown
             md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
 date: {datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")}
@@ -360,17 +331,14 @@ weight: {random.randint(1, 10)}
             
             save_link_to_memory(data['title'], slug)
             
-            # 6. Indexing
+            # 4. Submit Indexing (Log pasti muncul)
             full_url = f"{WEBSITE_URL}/articles/{slug}/"
-            if GOOGLE_LIBS_AVAILABLE:
-                try:
-                    # Logic submit ke google/indexnow
-                    pass 
-                except: pass
+            submit_to_indexnow(full_url)
+            submit_to_google(full_url)
 
             print(f"      ✅ Published: {slug}")
             processed += 1
-            time.sleep(5) # Delay lebih lama agar AI 'bernafas'
+            time.sleep(5)
 
 if __name__ == "__main__":
     main()
