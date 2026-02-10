@@ -3,6 +3,9 @@ languageCode: "en-us"
 title: "beastion.biz.id"
 canonifyURLs: true
 
+# Agar artikel tidak 404 jika jam server beda sedikit dengan jam artikel
+buildFuture: true 
+
 permalinks:
   articles: "/:slug/"
 
@@ -11,22 +14,26 @@ markup:
     renderer:
       unsafe: true
 
+# --- BAGIAN INI YANG SAYA PERBAIKI ---
 outputs:
   home:
     - HTML
     - RSS
     - Sitemap
-  page:
-    - HTML
   section:
     - HTML
     - RSS
+    - Sitemap  # <-- Ditambahkan agar daftar kategori masuk sitemap
+  page:
+    - HTML
+    - Sitemap  # <-- WAJIB ADA agar artikel masuk sitemap!
   taxonomy:
     - HTML
     - RSS
   term:
     - HTML
     - RSS
+# -------------------------------------
 
 services:
   rss:
