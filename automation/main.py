@@ -63,8 +63,9 @@ RSS_SOURCES = {
     "UK Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-GB&gl=GB&ceid=GB:en"
 }
 
-# 5. DIRECTORIES
-CONTENT_DIR = "content/posts"
+# 5. DIRECTORIES (SUDAH DIPERBAIKI KE 'articles')
+# ⚠️ PENTING: Folder output disesuaikan dengan error log kamu
+CONTENT_DIR = "content/articles" 
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
@@ -84,7 +85,7 @@ USER_AGENTS = [
 ]
 
 # ==========================================
-# 🧠 MEMORY & LINKING SYSTEM (FIXED)
+# 🧠 MEMORY & LINKING SYSTEM
 # ==========================================
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
@@ -95,8 +96,8 @@ def load_link_memory():
 def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
-    memory[title] = f"/{slug}"
-    # Simpan max 200 link terakhir
+    # Simpan dengan path folder yang benar
+    memory[title] = f"/articles/{slug}" 
     if len(memory) > 200: 
         memory = dict(list(memory.items())[-200:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
@@ -105,12 +106,9 @@ def get_internal_links_markdown():
     memory = load_link_memory()
     items = list(memory.items())
     
-    # Kalau belum ada artikel sebelumnya, return kosong
     if not items: 
-        print("      ℹ️ Link Memory Empty (First run? Links will appear next article)")
         return ""
         
-    # Ambil 3-5 link acak
     count = min(5, len(items))
     selected_items = random.sample(items, count)
     
@@ -120,12 +118,8 @@ def get_internal_links_markdown():
     return links_md
 
 def inject_links_in_middle(content_body, links_markdown):
-    """
-    Menyuntikkan link secara agresif di tengah artikel.
-    """
     if not links_markdown: return content_body
     
-    # Buat block rekomendasi yang cantik
     injection_block = f"""
 \n\n
 > **🔥 RECOMMENDED FOR YOU:**
@@ -133,18 +127,15 @@ def inject_links_in_middle(content_body, links_markdown):
 {"> " + links_markdown.replace("- ", "> - ")}
 \n\n
 """
-    # Normalisasi baris baru agar split aman
     content_body = content_body.replace("\r\n", "\n")
     paragraphs = content_body.split('\n\n')
     
-    # Jika paragraf sedikit, taruh di akhir saja
     if len(paragraphs) < 3:
         return content_body + injection_block
         
-    # Taruh di tengah-tengah (sekitar 40-50% artikel)
     target_index = int(len(paragraphs) * 0.4)
     
-    # Pastikan tidak merusak Header
+    # Hindari memotong Header Markdown (#)
     while target_index < len(paragraphs) and paragraphs[target_index].strip().startswith("#"):
         target_index += 1
         
@@ -196,28 +187,21 @@ def download_and_optimize_image(query, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
 
-    # Bersihkan query
     clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
-    
-    # List model Pollinations (Rotasi Model agar tidak kena limit)
     models = ["flux", "flux-realism", "any-dark", "turbo"]
     
     print(f"      🎨 Generating Image: {query[:30]}...")
 
-    # Coba sampai 4 kali dengan parameter berbeda
     for attempt in range(4):
         seed = random.randint(1, 999999999)
         model = random.choice(models)
         
-        # Prompt yang di-encode
         prompt_text = f"editorial sports photography, {clean_query}, stadium atmosphere, 4k, hyperrealistic, no text"
         safe_prompt = prompt_text.replace(" ", "%20")
         
-        # URL dengan parameter acak untuk bypass cache/limit
         image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model={model}&seed={seed}&enhance=true"
         
         try:
-            # Rotasi User Agent untuk setiap request
             headers = {
                 'User-Agent': random.choice(USER_AGENTS),
                 'Referer': 'https://google.com'
@@ -226,22 +210,16 @@ def download_and_optimize_image(query, filename):
             response = requests.get(image_url, headers=headers, timeout=30)
             
             if response.status_code == 200:
-                # Optimize dengan Pillow
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                
-                # Pertajam sedikit
                 enhancer = ImageEnhance.Sharpness(img)
                 img = enhancer.enhance(1.2)
-                
-                # Simpan
                 output_path = f"{IMAGE_DIR}/{filename}"
                 img.save(output_path, "WEBP", quality=85)
                 return f"/images/{filename}" 
             
         except Exception as e:
-            time.sleep(1) # Jeda sedikit sebelum retry
+            time.sleep(1)
             
-    print("      ⚠️ Image gen failed, using fallback.")
     return random.choice(FALLBACK_IMAGES)
 
 # ==========================================
@@ -315,14 +293,12 @@ def clean_json_response(content):
     return content.strip()
 
 def get_groq_article_json(title, summary, link, author_name):
-    
     current_date = datetime.now().strftime("%Y-%m-%d")
     blueprint_type, blueprint_structure = get_article_blueprint(title, summary)
     
     system_prompt = f"""
     You are {author_name}, a senior sports journalist.
     DATE: {current_date}.
-    
     MISSION: Write a 1500-WORD Deep Dive. Output VALID JSON.
     
     ⛔ FORBIDDEN WORDS IN HEADERS:
@@ -330,7 +306,6 @@ def get_groq_article_json(title, summary, link, author_name):
     
     ✅ MANDATORY HEADER RULES:
     - Every H2 and H3 must be creative, specific, and catchy.
-    - Example: Instead of "Tactical Fit", write "How He Unlocks The Midfield".
     
     STRUCTURE GUIDE:
     {blueprint_structure}
@@ -350,7 +325,6 @@ def get_groq_article_json(title, summary, link, author_name):
     TOPIC: {title}
     DETAILS: {summary}
     SOURCE: {link}
-    
     Execute the blueprint. Write extensively. Include a Table.
     """
 
@@ -381,12 +355,13 @@ def get_groq_article_json(title, summary, link, author_name):
 # 🏁 MAIN LOOP
 # ==========================================
 def main():
+    # SETUP FOLDER (Memastikan folder 'content/articles' dibuat)
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
-    print("🔥 STARTING ENGINE (UNLIMITED IMAGE MODE + FIXED LINKS)...")
+    print(f"🔥 STARTING ENGINE (Output: {CONTENT_DIR})...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -418,13 +393,13 @@ def main():
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
-            # 2. IMAGE (UNLIMITED)
+            # 2. IMAGE
             img_name = f"{slug}.webp"
             keyword = data.get('main_keyword') or clean_title
             final_img = download_and_optimize_image(keyword, img_name)
             
-            # 3. LINKS (FIXED)
-            links_md = get_internal_links_markdown() # Ambil link dari memory
+            # 3. LINKS
+            links_md = get_internal_links_markdown()
             final_body = inject_links_in_middle(data['content_body'], links_md)
 
             # 4. SAVE
@@ -451,19 +426,19 @@ draft: false
             with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
                 f.write(md_content)
             
-            # 5. SAVE TO MEMORY (Supaya artikel berikutnya bisa melink ke artikel ini)
+            # 5. MEMORY
             save_link_to_memory(data['title'], slug)
             
-            print(f"      ✅ Published: {filename}")
+            print(f"      ✅ Published: {CONTENT_DIR}/{filename}")
             
-            full_url = f"{WEBSITE_URL}/{slug}/"
+            full_url = f"{WEBSITE_URL}/articles/{slug}/"
             submit_to_indexnow(full_url)
             submit_to_google(full_url)
             
             cat_success_count += 1
             total_generated += 1
             
-            time.sleep(5) 
+            time.sleep(5)
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
 
