@@ -22,7 +22,6 @@ try:
     from googleapiclient.discovery import build
     GOOGLE_LIBS_AVAILABLE = True
 except ImportError:
-    print("⚠️ Warning: Google Indexing libs not installed.")
     GOOGLE_LIBS_AVAILABLE = False
 
 # ==========================================
@@ -63,25 +62,30 @@ RSS_SOURCES = {
     "UK Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-GB&gl=GB&ceid=GB:en"
 }
 
-# 5. DIRECTORIES (SUDAH DIPERBAIKI KE 'articles')
-# ⚠️ PENTING: Folder output disesuaikan dengan error log kamu
+# 5. DIRECTORIES
 CONTENT_DIR = "content/articles" 
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 TARGET_PER_SOURCE = 1 
 
-# 6. FALLBACK & USER AGENTS (UNTUK ANTI-LIMIT IMAGE)
-FALLBACK_IMAGES = [
-    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1200&q=80"
+# 6. STOK FOTO CADANGAN (JIKA AI ERROR, PAKAI INI SUPAYA TETAP BAGUS)
+BACKUP_REAL_PHOTOS = [
+    "https://images.unsplash.com/photo-1522778119026-d647f0565c6a?auto=format&fit=crop&w=1200&q=80", # Stadium
+    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1200&q=80", # Goal net
+    "https://images.unsplash.com/photo-1579952363873-27f3bde9be2b?auto=format&fit=crop&w=1200&q=80", # Soccer ball
+    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80", # Fans
+    "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?auto=format&fit=crop&w=1200&q=80", # Player kick
+    "https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1200&q=80", # Generic Football
+    "https://images.unsplash.com/photo-1556056504-5c7696c4c28d?auto=format&fit=crop&w=1200&q=80", # Boots
+    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=1200&q=80", # Crowd
+    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80", # Soccer Field
+    "https://images.unsplash.com/photo-1624880357913-a8539238245b?auto=format&fit=crop&w=1200&q=80"  # Red Jersey
 ]
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"
 ]
 
 # ==========================================
@@ -96,7 +100,6 @@ def load_link_memory():
 def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
-    # Simpan dengan path folder yang benar
     memory[title] = f"/articles/{slug}" 
     if len(memory) > 200: 
         memory = dict(list(memory.items())[-200:])
@@ -105,10 +108,8 @@ def save_link_to_memory(title, slug):
 def get_internal_links_markdown():
     memory = load_link_memory()
     items = list(memory.items())
+    if not items: return ""
     
-    if not items: 
-        return ""
-        
     count = min(5, len(items))
     selected_items = random.sample(items, count)
     
@@ -134,8 +135,6 @@ def inject_links_in_middle(content_body, links_markdown):
         return content_body + injection_block
         
     target_index = int(len(paragraphs) * 0.4)
-    
-    # Hindari memotong Header Markdown (#)
     while target_index < len(paragraphs) and paragraphs[target_index].strip().startswith("#"):
         target_index += 1
         
@@ -163,8 +162,7 @@ def submit_to_google(url):
         body = {"url": url, "type": "URL_UPDATED"}
         service.urlNotifications().publish(body=body).execute()
         print(f"      🚀 Google Indexing Submitted")
-    except Exception as e:
-        print(f"      ⚠️ Google Indexing Error: {e}")
+    except Exception: pass
 
 def submit_to_indexnow(url):
     try:
@@ -177,111 +175,116 @@ def submit_to_indexnow(url):
             "urlList": [url]
         }
         requests.post(endpoint, json=data, headers={'Content-Type': 'application/json'}, timeout=5)
-        print(f"      🚀 IndexNow Submitted")
     except: pass
 
 # ==========================================
-# 🎨 UNLIMITED IMAGE ENGINE (ANTI-LIMIT)
+# 🎨 SMART IMAGE ENGINE (AI + ROBUST FALLBACK)
 # ==========================================
-def download_and_optimize_image(query, filename):
+def download_image_from_url(url, filename):
+    """Fungsi helper untuk download dan optimize gambar"""
+    try:
+        headers = {'User-Agent': random.choice(USER_AGENTS)}
+        response = requests.get(url, headers=headers, timeout=20)
+        
+        if response.status_code == 200:
+            # Cek ukuran file. Jika < 5KB, kemungkinan itu gambar error placeholder
+            if len(response.content) < 5000: 
+                return False
+                
+            img = Image.open(BytesIO(response.content)).convert("RGB")
+            # Resize agar ringan tapi tajam
+            img.thumbnail((1200, 1200)) 
+            enhancer = ImageEnhance.Sharpness(img)
+            img = enhancer.enhance(1.2)
+            
+            output_path = f"{IMAGE_DIR}/{filename}"
+            img.save(output_path, "WEBP", quality=85)
+            return True
+    except Exception as e:
+        print(f"      ⚠️ Image Download Error: {e}")
+        return False
+    return False
+
+def get_best_image(query, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
-
-    clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
-    models = ["flux", "flux-realism", "any-dark", "turbo"]
     
-    print(f"      🎨 Generating Image: {query[:30]}...")
-
-    for attempt in range(4):
-        seed = random.randint(1, 999999999)
-        model = random.choice(models)
-        
-        prompt_text = f"editorial sports photography, {clean_query}, stadium atmosphere, 4k, hyperrealistic, no text"
-        safe_prompt = prompt_text.replace(" ", "%20")
-        
-        image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model={model}&seed={seed}&enhance=true"
-        
-        try:
-            headers = {
-                'User-Agent': random.choice(USER_AGENTS),
-                'Referer': 'https://google.com'
-            }
-            
-            response = requests.get(image_url, headers=headers, timeout=30)
-            
-            if response.status_code == 200:
-                img = Image.open(BytesIO(response.content)).convert("RGB")
-                enhancer = ImageEnhance.Sharpness(img)
-                img = enhancer.enhance(1.2)
-                output_path = f"{IMAGE_DIR}/{filename}"
-                img.save(output_path, "WEBP", quality=85)
-                return f"/images/{filename}" 
-            
-        except Exception as e:
-            time.sleep(1)
-            
-    return random.choice(FALLBACK_IMAGES)
+    print(f"      🎨 Processing Image for: {query[:30]}...")
+    clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
+    
+    # 1. COBA AI (POLLINATIONS) - Dengan Model 'Flux' (Paling stabil)
+    seed = random.randint(1, 999999)
+    # Gunakan prompt yang sangat spesifik
+    prompt = f"cinematic sports photography, {clean_query}, premiere league stadium background, dynamic lighting, 4k, realistic, no text"
+    safe_prompt = prompt.replace(" ", "%20")
+    
+    ai_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model=flux&seed={seed}"
+    
+    # Coba download AI
+    if download_image_from_url(ai_url, filename):
+        return f"/images/{filename}"
+    
+    print("      ⚠️ AI Image Failed/Rate Limited. Switching to HD Backup...")
+    
+    # 2. JIKA AI GAGAL -> PAKAI STOK FOTO ASLI (Random)
+    # Ini memastikan website TIDAK PERNAH tampil jelek
+    backup_url = random.choice(BACKUP_REAL_PHOTOS)
+    
+    # Coba download Backup
+    if download_image_from_url(backup_url, filename):
+         return f"/images/{filename}"
+         
+    # 3. Last Resort (Kalau internet parah banget)
+    return backup_url
 
 # ==========================================
-# 🧠 MEGA-PROMPT ENGINE (UNIQUE HEADERS)
+# 🧠 MEGA-PROMPT ENGINE
 # ==========================================
 def get_article_blueprint(title, summary):
     text = (title + " " + summary).lower()
-    
     if any(x in text for x in ['transfer', 'sign', 'bid', 'fee', 'contract']):
         return "TRANSFER_SAGA", """
         **SECTION 1 GUIDE: FINANCIALS**
         - H2 Requirement: Unique headline about Money/Cost.
           - H3: Wages/Fee breakdown (Markdown Table Required).
           - H3: Contract clauses.
-        
         **SECTION 2 GUIDE: ANALYSIS**
         - H2 Requirement: Unique headline about Skills.
           - H3: Strengths analysis.
           - H3: Weaknesses.
-        
         **SECTION 3 GUIDE: TACTICS**
         - H2 Requirement: Unique headline about Team Fit.
           - H3: Manager's plan.
-        
         **SECTION 4 GUIDE: VERDICT**
         - H2 Requirement: Unique closing headline.
           - H3: Final rating.
         """
-        
     elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight']):
         return "MATCH_DEEP_DIVE", """
         **SECTION 1 GUIDE: NARRATIVE**
         - H2 Requirement: Dramatic match headline.
           - H3: Context vs Reality.
-          
         **SECTION 2 GUIDE: TACTICS**
         - H2 Requirement: Unique tactical battle headline.
           - H3: Midfield/Defense analysis.
-            
         **SECTION 3 GUIDE: KEY MOMENTS**
         - H2 Requirement: Turning point headline.
           - H3: Goals/VAR.
-          
         **SECTION 4 GUIDE: DATA**
         - H2 Requirement: Stats headline.
           - H3: Ratings Table (Markdown).
         """
-        
     else:
         return "EDITORIAL_FEATURE", """
         **SECTION 1 GUIDE: CONTEXT**
         - H2 Requirement: History/Background headline.
           - H3: Timeline.
-            
         **SECTION 2 GUIDE: DEEP DIVE**
         - H2 Requirement: Core issue headline.
           - H3: Data/Facts (Table Required).
-            
         **SECTION 3 GUIDE: OPINION**
         - H2 Requirement: Reaction headline.
           - H3: Fans/Experts view.
-          
         **SECTION 4 GUIDE: FUTURE**
         - H2 Requirement: Prediction headline.
           - H3: Impact.
@@ -320,13 +323,7 @@ def get_groq_article_json(title, summary, link, author_name):
         "content_body": "Full Markdown content with UNIQUE H2/H3 headers."
     }}
     """
-
-    user_prompt = f"""
-    TOPIC: {title}
-    DETAILS: {summary}
-    SOURCE: {link}
-    Execute the blueprint. Write extensively. Include a Table.
-    """
+    user_prompt = f"TOPIC: {title}\nDETAILS: {summary}\nSOURCE: {link}\nExecute the blueprint."
 
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
@@ -334,34 +331,26 @@ def get_groq_article_json(title, summary, link, author_name):
             print(f"      🤖 AI Writing ({author_name})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.75, 
-                max_tokens=8000, 
-                response_format={"type": "json_object"}
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                temperature=0.75, max_tokens=8000, response_format={"type": "json_object"}
             )
             return clean_json_response(completion.choices[0].message.content)
-            
         except Exception as e:
             print(f"      ⚠️ Groq Error: {e}")
             time.sleep(3)
             continue
-            
     return None
 
 # ==========================================
 # 🏁 MAIN LOOP
 # ==========================================
 def main():
-    # SETUP FOLDER (Memastikan folder 'content/articles' dibuat)
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
-    print(f"🔥 STARTING ENGINE (Output: {CONTENT_DIR})...")
+    print(f"🔥 STARTING ENGINE (Robust Images & Fixed Folder)...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -369,7 +358,6 @@ def main():
         if not feed or not feed.entries: continue
 
         cat_success_count = 0
-        
         for entry in feed.entries:
             if cat_success_count >= TARGET_PER_SOURCE: break
 
@@ -382,28 +370,29 @@ def main():
             current_author = random.choice(AUTHOR_PROFILES)
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
-            # 1. GENERATE
+            # 1. GENERATE TEXT
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, current_author)
             if not raw_json: continue
-            
-            try:
-                data = json.loads(raw_json)
+            try: data = json.loads(raw_json)
             except: continue
 
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
-            # 2. IMAGE
+            # 2. GENERATE IMAGE (ROBUST MODE)
             img_name = f"{slug}.webp"
             keyword = data.get('main_keyword') or clean_title
-            final_img = download_and_optimize_image(keyword, img_name)
+            final_img = get_best_image(keyword, img_name)
             
-            # 3. LINKS
+            # 3. INJECT LINKS
             links_md = get_internal_links_markdown()
             final_body = inject_links_in_middle(data['content_body'], links_md)
 
-            # 4. SAVE
+            # 4. SAVE (WITH FEATURED PARAM)
             date_now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            
+            # Tambahkan featured: true secara acak agar homepage tidak bosan
+            is_featured = "true" if random.random() > 0.7 else "false"
             
             md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
@@ -416,6 +405,8 @@ featured_image_alt: "{keyword}"
 description: "{data['description'].replace('"', "'")}"
 slug: "{slug}"
 draft: false
+featured: {is_featured}
+weight: {random.randint(1, 10)}
 ---
 
 {final_body}
@@ -426,7 +417,6 @@ draft: false
             with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
                 f.write(md_content)
             
-            # 5. MEMORY
             save_link_to_memory(data['title'], slug)
             
             print(f"      ✅ Published: {CONTENT_DIR}/{filename}")
@@ -437,7 +427,6 @@ draft: false
             
             cat_success_count += 1
             total_generated += 1
-            
             time.sleep(5)
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
