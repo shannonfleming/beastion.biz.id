@@ -198,117 +198,121 @@ def download_and_optimize_image(query, filename):
     return random.choice(FALLBACK_IMAGES)
 
 # ==========================================
-# 🧠 MEGA-PROMPT ENGINE (1500 WORDS + H3/H4)
+# 🧠 MEGA-PROMPT ENGINE (1500 WORDS + UNIQUE HEADERS)
 # ==========================================
 def get_article_blueprint(title, summary):
     """
-    Membuat Kerangka Artikel yang Sangat Detail (H2 -> H3 -> H4)
-    Ini adalah kunci agar AI menulis panjang.
+    Blueprint Struktur Artikel.
+    Note: Teks di sini adalah PANDUAN STRUKTUR, bukan judul final.
     """
     text = (title + " " + summary).lower()
     
     if any(x in text for x in ['transfer', 'sign', 'bid', 'fee', 'contract']):
         return "TRANSFER_SAGA", """
-        **SECTION 1: THE DEAL (300 Words)**
-        - H2: The Financial Breakdown
-          - H3: Transfer Fee & Wages Structure (Use Markdown Table)
-          - H3: The Contract Clauses Explained
-            - H4: Buy-back clauses and Bonuses
+        **STRUCTURE GUIDE 1: FINANCIALS (300 Words)**
+        - H2 Requirement: Create a unique headline about the Money/Cost involved.
+          - H3: Wages and Transfer Fee breakdown (Markdown Table Required).
+          - H3: Contract clauses details.
         
-        **SECTION 2: PLAYER PROFILE (400 Words)**
-        - H2: Who is He? A Deep Dive
-          - H3: Strengths & Playing Style
-            - H4: Statistical Analysis (vs previous season)
-          - H3: Weaknesses & Areas for Improvement
+        **STRUCTURE GUIDE 2: PLAYER ANALYSIS (400 Words)**
+        - H2 Requirement: Create a unique headline about the Player's Skills.
+          - H3: Strengths analysis.
+            - H4: Stats comparison.
+          - H3: Weaknesses.
         
-        **SECTION 3: TACTICAL FIT (300 Words)**
-        - H2: How He Fits the System
-          - H3: The Manager's Plan
-            - H4: Potential Lineup Changes
+        **STRUCTURE GUIDE 3: TACTICS (300 Words)**
+        - H2 Requirement: Create a unique headline about fitting into the team.
+          - H3: Manager's tactical plan.
+            - H4: Lineup changes.
         
-        **SECTION 4: THE VERDICT (250 Words)**
-        - H2: Conclusion & Rating
-          - H3: Is it a Good Deal?
+        **STRUCTURE GUIDE 4: CONCLUSION (250 Words)**
+        - H2 Requirement: A powerful closing statement headline.
+          - H3: Final verdict on the deal.
         """
         
     elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight', 'draw']):
         return "MATCH_DEEP_DIVE", """
-        **SECTION 1: THE NARRATIVE (300 Words)**
-        - H2: Match Overview & Context
-          - H3: Pre-match Expectations vs Reality
+        **STRUCTURE GUIDE 1: NARRATIVE (300 Words)**
+        - H2 Requirement: A dramatic headline summarizing the match vibe.
+          - H3: Pre-match context vs Reality.
           
-        **SECTION 2: TACTICAL ANALYSIS (400 Words)**
-        - H2: Where the Game Was Won
-          - H3: The Midfield Battle
-            - H4: Key Player Movements and Heatmaps
-          - H3: Defensive Organization
-            - H4: Critical Errors Analyzed
+        **STRUCTURE GUIDE 2: TACTICS (400 Words)**
+        - H2 Requirement: A headline about specific tactical battles.
+          - H3: Midfield analysis.
+            - H4: Key movements.
+          - H3: Defensive structure.
+            - H4: Errors committed.
             
-        **SECTION 3: KEY MOMENTS (300 Words)**
-        - H2: Turning Points
-          - H3: The Goals Broken Down
-          - H3: Controversial Decisions (VAR/Referee)
+        **STRUCTURE GUIDE 3: MOMENTS (300 Words)**
+        - H2 Requirement: A headline about the turning point.
+          - H3: Goal analysis.
+          - H3: Controversy/VAR check.
           
-        **SECTION 4: DATA & RATINGS (300 Words)**
-        - H2: Statistical Breakdown
-          - H3: Player Ratings (Use Markdown Table)
-          - H3: xG (Expected Goals) Analysis
+        **STRUCTURE GUIDE 4: DATA (300 Words)**
+        - H2 Requirement: A headline about the stats/ratings.
+          - H3: Player Ratings Table (Markdown).
+          - H3: xG Analysis.
         """
         
     else:
         return "EDITORIAL_FEATURE", """
-        **SECTION 1: THE CONTEXT (300 Words)**
-        - H2: Background of the Story
-          - H3: Timeline of Events
-            - H4: How we got here
+        **STRUCTURE GUIDE 1: CONTEXT (300 Words)**
+        - H2 Requirement: A headline about the history/background.
+          - H3: Timeline of events.
+            - H4: How it started.
             
-        **SECTION 2: THE CORE ISSUE (400 Words)**
-        - H2: Deep Analysis of the Problem
-          - H3: The Data Behind the Story (Markdown Table Required)
-          - H3: Comparisons to Historical Events
-            - H4: Similar cases in the past
+        **STRUCTURE GUIDE 2: ANALYSIS (400 Words)**
+        - H2 Requirement: A deep dive headline into the core issue.
+          - H3: Data/Facts (Markdown Table Required).
+          - H3: Historical comparison.
+            - H4: Past examples.
             
-        **SECTION 3: PERSPECTIVES (300 Words)**
-        - H2: What People Are Saying
-          - H3: Fan Reactions & Sentiment
-          - H3: Expert Opinions
+        **STRUCTURE GUIDE 3: REACTION (300 Words)**
+        - H2 Requirement: A headline about public/expert sentiment.
+          - H3: Fan reactions.
+          - H3: Pundit opinions.
           
-        **SECTION 4: FUTURE OUTLOOK (250 Words)**
-        - H2: What Happens Next?
-          - H3: Short-term vs Long-term Implications
+        **STRUCTURE GUIDE 4: FUTURE (250 Words)**
+        - H2 Requirement: A predictive headline about what comes next.
+          - H3: Long-term impact.
         """
+
+def clean_json_response(content):
+    content = re.sub(r'```json\s*', '', content)
+    content = re.sub(r'```\s*$', '', content)
+    return content.strip()
 
 def get_groq_article_json(title, summary, link, author_name):
     
     current_date = datetime.now().strftime("%Y-%m-%d")
     blueprint_type, blueprint_structure = get_article_blueprint(title, summary)
     
+    # SYSTEM PROMPT DIMODIFIKASI AGAR HEADER UNIK
     system_prompt = f"""
-    You are {author_name}, a world-class sports journalist known for long-form analysis.
-    TODAY'S DATE: {current_date}.
+    You are {author_name}, a world-class senior sports journalist.
     
-    YOUR GOAL: Write a **1500-WORD** Deep Dive Article.
+    DATE: {current_date}.
     
-    CRITICAL INSTRUCTION:
-    You MUST follow the "Blueprint" below. You must generate H2, H3, and H4 headers exactly as requested to ensure depth.
-    Do NOT summarize. EXPAND on every single point.
+    YOUR MISSION: 
+    Write a 1500-WORD Deep Dive Article. Output strictly valid JSON.
     
-    BLUEPRINT STRUCTURE:
+    🚨 CRITICAL RULES FOR HEADERS (H2, H3, H4):
+    1. **NEVER** use generic words like "Section 1", "Introduction", "The Deal", "Tactical Analysis", "Conclusion", or "Verdict".
+    2. **YOU MUST REWRITE** every H2 and H3 headline to be CREATIVE, UNIQUE, and SPECIFIC to the news topic.
+    3. Example: Instead of "Tactical Fit", write "How Calafiori Unlock's Arteta's Left Side".
+    4. Example: Instead of "The Verdict", write "Why this £40m Gamble Will Pay Off".
+    
+    STRUCTURE TO FOLLOW (Do not copy the labels, follow the logic):
     {blueprint_structure}
-    
-    ANTI-HOAX RULES:
-    1. If event date > {current_date} -> Write PREVIEW/PREDICTION.
-    2. If event date <= {current_date} -> Write REPORT/ANALYSIS.
-    3. Include at least ONE Markdown Table.
     
     JSON OUTPUT FORMAT:
     {{
-        "title": "Viral Headline (Max 70 chars, Editorial Style)",
+        "title": "Viral Editorial Headline (No Clickbait)",
         "description": "SEO Description (160 chars)",
-        "category": "Pick one: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
-        "main_keyword": "Entity for image generation",
+        "category": "One of: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
+        "main_keyword": "Entity name for image generation",
         "tags": ["tag1", "tag2", "tag3"],
-        "content_body": "Full Markdown content with H2, H3, H4..."
+        "content_body": "Full Markdown content. Make H2/H3 headers unique/contextual."
     }}
     """
 
@@ -317,26 +321,36 @@ def get_groq_article_json(title, summary, link, author_name):
     DETAILS: {summary}
     SOURCE LINK: {link}
     
-    Execute the Blueprint now. Make it long, detailed, and data-driven.
+    INSTRUCTIONS:
+    - Write deep, analytical paragraphs.
+    - Include at least one Markdown Table.
+    - Ensure all H2/H3 headers are unique and catchy (No "Section 1" text in final output!).
     """
 
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing ({author_name})...")
+            print(f"      🤖 AI Writing ({author_name}) - Pattern: {blueprint_type}...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7, 
-                max_tokens=8000, # Max token besar untuk artikel panjang
+                temperature=0.7, # Sedikit kreatif untuk judul
+                max_tokens=8000, 
                 response_format={"type": "json_object"}
             )
-            return completion.choices[0].message.content
+            
+            raw_content = completion.choices[0].message.content
+            cleaned_json = clean_json_response(raw_content)
+            
+            # Validasi
+            json.loads(cleaned_json)
+            return cleaned_json
+            
         except RateLimitError:
-            time.sleep(2)
+            time.sleep(5)
             continue
         except Exception as e:
             print(f"      ⚠️ Groq Error: {e}")
@@ -353,7 +367,7 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
-    print("🔥 STARTING ENGINE (MEGA-CONTENT MODE: H2/H3/H4)...")
+    print("🔥 STARTING ENGINE (MEGA-CONTENT MODE: UNIQUE HEADERS)...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -377,11 +391,14 @@ def main():
             # 1. GENERATE KONTEN (AI)
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, current_author)
             
-            if not raw_json: continue
+            if not raw_json: 
+                print("      ❌ Content Generation Failed")
+                continue
+            
             try:
                 data = json.loads(raw_json)
             except: 
-                print("      ❌ JSON Error")
+                print("      ❌ JSON Parse Error")
                 continue
 
             if data.get('category') not in VALID_CATEGORIES:
@@ -392,13 +409,13 @@ def main():
             keyword_for_image = data.get('main_keyword') or clean_title
             final_img = download_and_optimize_image(keyword_for_image, img_name)
             
-            # 3. INJECT LINKS DI TENGAH (PYTHON LOGIC)
+            # 3. INJECT LINKS
             links_md = get_internal_links_markdown()
             final_body = inject_links_in_middle(data['content_body'], links_md)
 
             # 4. SAVE FILE
             date_now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
-            tags_list = data.get('lsi_keywords', [])
+            tags_list = data.get('tags', [])
             
             md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
@@ -433,7 +450,7 @@ draft: false
             cat_success_count += 1
             total_generated += 1
             
-            time.sleep(10) # Istirahat lebih lama untuk artikel panjang
+            time.sleep(10)
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
 
