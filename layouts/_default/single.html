@@ -1,150 +1,161 @@
 {{ define "main" }}
-<!-- HAPUS 'max-w-4xl' di sini. Gunakan max-w-7xl atau container default agar lebar -->
-<div class="container mx-auto px-4 py-8 max-w-7xl">
-
-    <!-- BREADCRUMBS -->
-    <nav aria-label="Breadcrumb" class="mb-6 text-sm text-gray-500">
-        <ol class="list-none p-0 inline-flex items-center">
-            <li class="flex items-center">
-                <a href="/" class="hover:text-red-600 hover:underline">Home</a>
-                <span class="mx-2">/</span>
-            </li>
-            {{ if .Params.categories }}
-            <li class="flex items-center">
-                <a href="{{ "/categories/" | relLangURL }}{{ index .Params.categories 0 | urlize }}" class="hover:text-red-600 hover:underline">
+<div class="container mx-auto px-4 py-8">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        
+        <!-- KOLOM UTAMA (Artikel) -->
+        <article class="lg:col-span-8">
+            
+            <!-- 1. BREADCRUMB & BADGE -->
+            <div class="mb-4 flex items-center gap-3">
+                {{ if .Params.categories }}
+                <a href="{{ "/categories/" | relLangURL }}{{ index .Params.categories 0 | urlize }}" 
+                   class="inline-block bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest rounded-sm hover:bg-red-800 transition">
                     {{ index .Params.categories 0 }}
                 </a>
-                <span class="mx-2">/</span>
-            </li>
-            {{ end }}
-            <li class="font-semibold text-gray-700 truncate max-w-[200px] md:max-w-none">
-                {{ .Title }}
-            </li>
-        </ol>
-    </nav>
-
-    <!-- GRID LAYOUT SYSTEM (PENTING AGAR ADA SIDEBAR) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-
-        <!-- KOLOM KIRI: ARTIKEL (Lebar 8/12) -->
-        <main class="lg:col-span-8">
-            
-            <article>
-                <!-- Header Artikel -->
-                <header class="mb-8 border-b border-gray-200 pb-8">
-                    <!-- Kategori Badge -->
-                    {{ if .Params.categories }}
-                    <span class="text-red-600 font-bold uppercase text-xs tracking-wider mb-2 block">
-                        {{ index .Params.categories 0 }}
-                    </span>
-                    {{ end }}
-
-                    <h1 class="font-display font-black text-3xl md:text-4xl lg:text-5xl text-gray-900 mb-4 leading-tight">
-                        {{ .Title }}
-                    </h1>
-
-                    <div class="flex items-center justify-between text-xs text-gray-500 font-mono mt-4">
-                        <div class="flex items-center gap-2">
-                            <span>By <strong class="text-gray-900">{{ .Params.author | default "Beastion Team" }}</strong></span>
-                            <span>•</span>
-                            <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
-                        </div>
-                    </div>
-                </header>
-
-                <!-- IKLAN ATAS ARTIKEL -->
-                <div class="ad-container my-6 text-center">
-                    <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                    <div class="bg-gray-100 min-h-[100px] flex items-center justify-center border border-gray-200 rounded">
-                        <!-- SCRIPT ADSENSE DISPLAY DI SINI -->
-                        <span class="text-xs text-gray-400">Ad Slot (Top)</span>
-                    </div>
-                </div>
-
-                <!-- Gambar Utama -->
-                {{ if .Params.featured_image }}
-                <figure class="mb-8">
-                    <img src="{{ .Params.featured_image }}" alt="{{ .Title }}" class="w-full h-auto rounded-lg object-cover shadow-sm">
-                </figure>
                 {{ end }}
+                <span class="text-gray-400 text-xs uppercase tracking-wide font-bold">
+                    {{ .ReadingTime }} min read
+                </span>
+            </div>
 
-                <!-- Isi Artikel -->
-                <div class="prose prose-lg prose-red max-w-none 
-                            prose-headings:font-bold prose-headings:text-gray-900 
-                            prose-p:text-gray-800 prose-a:text-red-600 hover:prose-a:underline">
-                    {{ .Content }}
-                </div>
+            <!-- 2. HEADLINE (H1 SEO) -->
+            <h1 class="font-display font-black text-3xl md:text-5xl lg:text-[3.2rem] text-gray-900 leading-tight mb-6">
+                {{ .Title }}
+            </h1>
 
-                <!-- IKLAN BAWAH ARTIKEL -->
-                <div class="ad-container mt-12 text-center">
-                    <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                    <div class="bg-gray-100 min-h-[250px] flex items-center justify-center border border-gray-200 rounded">
-                        <!-- SCRIPT ADSENSE MULTIPLEX DI SINI -->
-                        <span class="text-xs text-gray-400">Ad Slot (Bottom)</span>
+            <!-- 3. AUTHOR & DATE -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-t border-b border-gray-100 py-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl border border-gray-200">
+                        ✍️
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-xs font-bold text-gray-900 uppercase">
+                            By <span class="text-red-600">{{ .Params.author | default "Football Daily Analyst" }}</span>
+                        </span>
+                        <time class="text-xs text-gray-500 font-medium" datetime="{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}">
+                            Published: {{ .Date.Format "January 2, 2006" }}
+                        </time>
                     </div>
                 </div>
+            </div>
 
-            </article>
-        </main>
+            <!-- ADSENSE SLOT 1: TOP OF ARTICLE (Responsive) -->
+            <!-- Penting: Diberi label 'Advertisement' agar tidak melanggar kebijakan 'Misleading Content' -->
+            <div class="w-full my-6 flex flex-col items-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                <div class="w-full bg-gray-50 min-h-[100px] flex items-center justify-center border border-gray-100">
+                    <!-- PASANG KODE ADSENSE 'DISPLAY AD (RESPONSIVE)' DI SINI -->
+                    <!-- <script>...</script> -->
+                    <span class="text-gray-300 text-xs">Ad Space Top</span>
+                </div>
+            </div>
 
-        <!-- KOLOM KANAN: SIDEBAR (Lebar 4/12) -->
-        <!-- Gunakan 'hidden lg:block' agar sidebar hilang di HP (biar rapi) dan muncul di Desktop -->
-        <aside class="hidden lg:block lg:col-span-4 space-y-8">
-            
+            <!-- 4. MAIN IMAGE -->
+            {{ if .Params.featured_image }}
+            <figure class="mb-8">
+                <img src="{{ .Params.featured_image }}" 
+                     alt="{{ .Params.featured_image_alt | default .Title }}" 
+                     class="w-full h-auto object-cover rounded shadow-sm"
+                     width="1200" height="675" loading="eager">
+                <figcaption class="text-xs text-gray-500 mt-2 italic text-center">
+                    {{ .Params.featured_image_alt | default "Image via Football Daily Analysis" }}
+                </figcaption>
+            </figure>
+            {{ end }}
+
+            <!-- 5. ARTICLE CONTENT -->
+            <!-- Menambahkan 'break-words' dan 'overflow-hidden' agar konten tidak merusak layout iklan -->
+            <div class="prose prose-lg max-w-none break-words overflow-hidden
+                        prose-headings:font-display prose-headings:font-bold prose-headings:text-gray-900
+                        prose-p:font-sans prose-p:text-gray-800 prose-p:leading-relaxed
+                        prose-a:text-red-600 prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+                        prose-img:rounded-lg prose-img:shadow-md
+                        prose-blockquote:bg-gray-50 prose-blockquote:border-l-4 prose-blockquote:border-red-600 
+                        prose-blockquote:py-4 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:not-italic
+                        prose-table:border prose-table:border-gray-200 prose-table:shadow-sm">
+                {{ .Content }}
+            </div>
+
+            <!-- ADSENSE SLOT 2: BOTTOM OF ARTICLE -->
+            <div class="w-full mt-8 mb-8 flex flex-col items-center border-t border-b border-gray-100 py-6">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                <div class="w-full bg-gray-50 min-h-[250px] flex items-center justify-center border border-gray-100">
+                     <!-- PASANG KODE ADSENSE 'MULTIPLEX' ATAU 'DISPLAY' DI SINI -->
+                     <span class="text-gray-300 text-xs">Ad Space Bottom</span>
+                </div>
+            </div>
+
+            <!-- 6. TAGS -->
+            <div class="mt-4">
+                <h4 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Topics</h4>
+                <div class="flex flex-wrap gap-2">
+                    {{ range .Params.tags }}
+                    <a href="{{ "/tags/" | relLangURL }}{{ . | urlize }}" class="bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold px-3 py-2 rounded transition uppercase">
+                        {{ . }}
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
+
+        </article>
+
+        <!-- SIDEBAR -->
+        <!-- Perubahan: Hapus class 'hidden' dari pembungkus utama jika ingin iklan tampil di mobile (opsional). 
+             Tapi jika desain mengharuskan hidden di mobile, pastikan JANGAN menaruh kode iklan di dalam div yang hidden. -->
+        <aside class="lg:col-span-4 mt-12 lg:mt-0">
             <div class="sticky top-24">
                 
-                <!-- WIDGET 1: IKLAN SIDEBAR (Skyscraper) -->
-                <div class="flex flex-col items-center mb-8">
-                    <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
-                    <!-- Container Iklan Vertikal -->
-                    <div class="w-[300px] h-[600px] bg-gray-100 border border-gray-200 flex items-center justify-center rounded">
-                        <!-- SCRIPT ADSENSE VERTICAL (300x600) -->
-                        <span class="text-xs text-gray-400">Vertical Ad</span>
+                <!-- ADSENSE SLOT 3: SIDEBAR (Hanya Tampil di Desktop) -->
+                <!-- Kita gunakan class 'hidden lg:flex' agar di mobile kode ini TIDAK DIRENDER/TAMPIL 
+                     sehingga tidak dihitung sebagai hidden ad violation -->
+                <div class="hidden lg:flex flex-col items-center mb-8">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                    <div class="w-full bg-gray-50 min-h-[600px] flex items-center justify-center border border-gray-100">
+                        <!-- PASANG KODE ADSENSE 'VERTICAL/SKYSCRAPER' DI SINI -->
+                        <span class="text-gray-300 text-xs">Sidebar Ad</span>
                     </div>
                 </div>
 
-                <!-- WIDGET 2: LATEST POSTS -->
-                <div class="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-                    <h3 class="font-bold text-gray-900 uppercase tracking-wider mb-4 text-sm border-l-4 border-red-600 pl-3">
+                <!-- Sidebar Header -->
+                <div class="flex items-center justify-between mb-6 border-b border-gray-200 pb-2">
+                    <h3 class="font-display font-bold text-lg uppercase tracking-tight text-gray-900">
                         Latest News
                     </h3>
-                    <ul class="flex flex-col gap-4">
-                        {{ range first 5 (where .Site.RegularPages "Type" "post") }}
-                        <li class="group">
-                            <a href="{{ .Permalink }}" class="flex gap-3">
-                                <div class="w-16 h-16 bg-gray-200 rounded overflow-hidden shrink-0">
-                                    {{ if .Params.featured_image }}
-                                    <img src="{{ .Params.featured_image }}" class="w-full h-full object-cover group-hover:opacity-80 transition">
-                                    {{ end }}
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-gray-900 leading-snug group-hover:text-red-600 transition line-clamp-2">
-                                        {{ .Title }}
-                                    </h4>
-                                    <span class="text-[10px] text-gray-500 uppercase mt-1 block">{{ .Date.Format "Jan 02" }}</span>
-                                </div>
-                            </a>
-                        </li>
-                        {{ end }}
-                    </ul>
+                    <span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
                 </div>
 
-                <!-- WIDGET 3: CATEGORIES -->
-                <div class="bg-gray-900 text-white rounded-lg p-5 mt-6">
-                    <h3 class="font-bold uppercase tracking-wider mb-4 text-sm text-red-500">
-                        Top Categories
-                    </h3>
-                    <ul class="space-y-2 text-sm">
-                        <li><a href="/categories/premier-league" class="block py-1 border-b border-gray-800 hover:text-red-400">Premier League</a></li>
-                        <li><a href="/categories/champions-league" class="block py-1 border-b border-gray-800 hover:text-red-400">Champions League</a></li>
-                        <li><a href="/categories/transfer-news" class="block py-1 border-b border-gray-800 hover:text-red-400">Transfer News</a></li>
-                    </ul>
+                <!-- Latest News Loop -->
+                <div class="flex flex-col gap-6">
+                    {{ $current := . }}
+                    {{ $related := where .Site.RegularPages "Section" "articles" }}
+                    {{ $related := where $related "Permalink" "ne" $current.Permalink }}
+                    
+                    {{ range first 5 $related }}
+                    <article class="group flex gap-4">
+                        <a href="{{ .Permalink }}" class="shrink-0 w-20 h-20 overflow-hidden rounded-md shadow-sm relative bg-gray-100">
+                            {{ if .Params.featured_image }}
+                            <img src="{{ .Params.featured_image }}" class="w-full h-full object-cover transition duration-300 group-hover:scale-110" loading="lazy">
+                            {{ else }}
+                            <div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">No Img</div>
+                            {{ end }}
+                        </a>
+                        <div class="flex flex-col justify-start">
+                            <span class="text-[9px] font-bold text-red-600 uppercase mb-1">
+                                {{ index .Params.categories 0 | default "News" }}
+                            </span>
+                            <h4 class="font-display font-bold text-sm leading-snug group-hover:text-red-600 transition line-clamp-2">
+                                <a href="{{ .Permalink }}">{{ .Title }}</a>
+                            </h4>
+                        </div>
+                    </article>
+                    {{ end }}
                 </div>
 
             </div>
         </aside>
 
-    </div> <!-- End Grid -->
-
+    </div>
 </div>
 {{ end }}
