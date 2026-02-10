@@ -1,105 +1,135 @@
 {{ define "main" }}
+<!-- 1. CONTAINER UTAMA: Wajib max-w-7xl agar lebar cukup untuk sidebar -->
+<div class="container mx-auto px-4 py-8 max-w-7xl">
 
-<!-- 1. PEMBUNGKUS UTAMA: Pastikan ini max-w-7xl atau w-full (JANGAN max-w-4xl) -->
-<div class="w-full bg-gray-50 min-h-screen">
-    <div class="mx-auto px-4 py-10 max-w-7xl"> <!-- INI KUNCINYA: max-w-7xl -->
+    <!-- 2. LAYOUT UTAMA: FLEXBOX -->
+    <!-- Mobile: flex-col (atas-bawah), Desktop: flex-row (kiri-kanan) -->
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-12">
 
-        <!-- 2. LAYOUT: Flexbox (Kiri Artikel, Kanan Sidebar) -->
-        <div class="flex flex-col lg:flex-row gap-8 items-start">
+        <!-- ==========================
+             KOLOM KIRI: KONTEN (70%)
+             ========================== -->
+        <article class="w-full lg:w-8/12 min-w-0">
+            
+            <!-- Breadcrumb -->
+            <nav class="text-sm text-gray-500 mb-6 flex items-center gap-2">
+                <a href="/" class="hover:text-red-600 font-bold">Home</a>
+                <span>/</span>
+                <span class="text-gray-800 truncate">{{ .Title }}</span>
+            </nav>
 
-            <!-- ==========================
-                 BAGIAN KIRI: ARTIKEL (70%)
-                 ========================== -->
-            <main class="w-full lg:w-8/12 bg-white p-6 rounded shadow-sm border border-gray-200">
-                
-                <!-- Breadcrumb -->
-                <div class="text-sm text-gray-500 mb-4">
-                    <a href="/" class="text-red-600 font-bold">Home</a> / {{ .Title }}
-                </div>
+            <!-- Header Artikel -->
+            <header class="mb-8 border-b border-gray-100 pb-6">
+                {{ if .Params.categories }}
+                <a href="{{ "/categories/" | relLangURL }}{{ index .Params.categories 0 | urlize }}" 
+                   class="inline-block bg-red-600 text-white text-[10px] font-bold px-2 py-1 uppercase mb-3 hover:bg-red-800 transition rounded">
+                    {{ index .Params.categories 0 }}
+                </a>
+                {{ end }}
 
-                <!-- Judul -->
-                <h1 class="text-3xl lg:text-5xl font-black text-gray-900 mb-4 leading-tight">
+                <h1 class="font-display font-black text-3xl md:text-4xl lg:text-5xl text-gray-900 leading-tight mb-4">
                     {{ .Title }}
                 </h1>
 
-                <!-- Info Author -->
-                <div class="flex items-center gap-2 text-xs text-gray-500 mb-6 border-b pb-4">
-                    <span>By <strong>{{ .Params.author | default "Admin" }}</strong></span>
+                <div class="flex items-center gap-3 text-xs text-gray-500">
+                    <span class="font-bold text-gray-900 uppercase">By {{ .Params.author | default "Editor" }}</span>
                     <span>•</span>
-                    <time>{{ .Date.Format "Jan 02, 2006" }}</time>
+                    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
                 </div>
+            </header>
 
-                <!-- IKLAN ATAS -->
-                <div class="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-400 mb-6 border border-dashed border-gray-300">
-                    [Area Iklan Atas]
+            <!-- IKLAN ATAS (Placeholder) -->
+            <div class="my-6 w-full bg-gray-50 border border-gray-200 rounded flex flex-col items-center justify-center p-4">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                <!-- GANTI DENGAN KODE ADSENSE ANDA -->
+                <div class="w-full h-[100px] bg-gray-200 flex items-center justify-center text-xs text-gray-400">
+                    Slot Iklan Responsive
                 </div>
+            </div>
 
-                <!-- Konten Artikel -->
-                <article class="prose prose-lg prose-red max-w-none">
-                    {{ .Content }}
-                </article>
+            <!-- Gambar Utama -->
+            {{ if .Params.featured_image }}
+            <figure class="mb-8">
+                <img src="{{ .Params.featured_image }}" alt="{{ .Title }}" class="w-full h-auto rounded-lg shadow-sm object-cover">
+            </figure>
+            {{ end }}
 
-                <!-- IKLAN BAWAH -->
-                <div class="w-full h-64 bg-gray-100 flex items-center justify-center text-gray-400 mt-8 border border-dashed border-gray-300">
-                    [Area Iklan Bawah]
+            <!-- Isi Konten -->
+            <div class="prose prose-lg prose-red max-w-none text-gray-800">
+                {{ .Content }}
+            </div>
+
+            <!-- IKLAN BAWAH (Placeholder) -->
+            <div class="mt-10 w-full bg-gray-50 border border-gray-200 rounded flex flex-col items-center justify-center p-4">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                <!-- GANTI DENGAN KODE ADSENSE MULTIPLEX ANDA -->
+                <div class="w-full h-[250px] bg-gray-200 flex items-center justify-center text-xs text-gray-400">
+                    Slot Iklan Multiplex
                 </div>
+            </div>
 
-            </main>
+        </article>
 
-            <!-- ==========================
-                 BAGIAN KANAN: SIDEBAR (30%)
-                 ========================== -->
-            <!-- SAYA HAPUS CLASS 'hidden' AGAR PASTI MUNCUL -->
-            <!-- Background KUNING (bg-yellow-100) agar terlihat jelas -->
-            <aside class="w-full lg:w-4/12 space-y-6">
-                
-                <!-- DEBUG: Teks ini harus muncul -->
-                <div class="bg-yellow-200 p-4 text-center border-2 border-red-500 font-bold text-red-700">
-                    INI ADALAH SIDEBAR !!!
-                </div>
 
-                <!-- WIDGET 1: IKLAN -->
-                <div class="bg-white p-4 rounded shadow-sm border border-gray-200 flex flex-col items-center">
-                    <span class="text-xs text-gray-400 mb-2">ADVERTISEMENT</span>
-                    <div class="w-[300px] h-[600px] bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                        Iklan Vertical 300x600
+        <!-- ==========================
+             KOLOM KANAN: SIDEBAR (30%)
+             ========================== -->
+        <!-- Gunakan w-full di mobile, dan w-4/12 di desktop -->
+        <aside class="w-full lg:w-4/12 space-y-8">
+            
+            <!-- Sticky Wrapper -->
+            <div class="sticky top-8">
+
+                <!-- WIDGET IKLAN SIDEBAR -->
+                <div class="flex flex-col items-center mb-8">
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                    <div class="bg-gray-50 border border-gray-200 p-2 rounded">
+                        <!-- GANTI DENGAN KODE ADSENSE VERTICAL -->
+                        <div class="w-[300px] h-[600px] bg-gray-200 flex items-center justify-center text-xs text-gray-400">
+                            Iklan Vertical 300x600
+                        </div>
                     </div>
                 </div>
 
-                <!-- WIDGET 2: BERITA TERBARU -->
-                <div class="bg-white p-5 rounded shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-lg mb-4 border-l-4 border-red-600 pl-3">LATEST POSTS</h3>
-                    <div class="flex flex-col gap-4">
-                        <!-- Mengambil 5 Artikel Sembarang -->
+                <!-- WIDGET BERITA TERBARU -->
+                <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                    <h3 class="font-black text-lg text-gray-900 uppercase mb-4 border-l-4 border-red-600 pl-3">
+                        Latest News
+                    </h3>
+                    
+                    <div class="flex flex-col gap-5">
+                        <!-- Mengambil 5 artikel acak/terbaru -->
                         {{ range first 5 .Site.RegularPages }}
-                        <a href="{{ .Permalink }}" class="flex gap-3 hover:bg-gray-50 p-1 rounded">
-                            <div class="w-16 h-16 bg-gray-300 shrink-0 overflow-hidden">
+                        <a href="{{ .Permalink }}" class="group flex gap-3 items-start">
+                            <div class="w-16 h-16 bg-gray-100 shrink-0 overflow-hidden rounded">
                                 {{ if .Params.featured_image }}
-                                <img src="{{ .Params.featured_image }}" class="w-full h-full object-cover">
+                                <img src="{{ .Params.featured_image }}" class="w-full h-full object-cover group-hover:scale-110 transition">
                                 {{ end }}
                             </div>
                             <div>
-                                <h4 class="font-bold text-sm line-clamp-2 leading-snug">{{ .Title }}</h4>
-                                <span class="text-xs text-gray-500">{{ .Date.Format "Jan 02" }}</span>
+                                <h4 class="font-bold text-sm leading-snug group-hover:text-red-600 transition line-clamp-2">
+                                    {{ .Title }}
+                                </h4>
+                                <span class="text-[10px] text-gray-400 mt-1 block">{{ .Date.Format "Jan 02" }}</span>
                             </div>
                         </a>
                         {{ end }}
                     </div>
                 </div>
 
-                <!-- WIDGET 3: KATEGORI -->
-                <div class="bg-gray-900 text-white p-5 rounded shadow-sm">
-                    <h3 class="font-bold text-lg mb-4 text-red-500">CATEGORIES</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li class="border-b border-gray-700 pb-1"><a href="/categories/premier-league">Premier League</a></li>
-                        <li class="border-b border-gray-700 pb-1"><a href="/categories/la-liga">La Liga</a></li>
-                        <li class="border-b border-gray-700 pb-1"><a href="/categories/transfer-news">Transfer News</a></li>
+                <!-- WIDGET NAVIGASI (Penting untuk SEO/AdSense) -->
+                <div class="mt-8 bg-gray-900 text-white rounded-lg p-6">
+                    <h3 class="font-black text-lg uppercase mb-4 text-red-500">Categories</h3>
+                    <ul class="space-y-2 text-sm font-medium">
+                        <li><a href="/categories/premier-league" class="block py-1 hover:text-red-400 transition border-b border-gray-800">Premier League</a></li>
+                        <li><a href="/categories/champions-league" class="block py-1 hover:text-red-400 transition border-b border-gray-800">Champions League</a></li>
+                        <li><a href="/categories/transfer-news" class="block py-1 hover:text-red-400 transition border-b border-gray-800">Transfer News</a></li>
                     </ul>
                 </div>
 
-            </aside>
+            </div>
+        </aside>
 
-        </div>
     </div>
 </div>
 {{ end }}
