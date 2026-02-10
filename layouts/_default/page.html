@@ -1,66 +1,111 @@
 {{ define "main" }}
-<div class="container mx-auto px-4 py-12 max-w-4xl">
-    
-    <!-- 1. BREADCRUMBS (Navigasi) -->
-    <!-- AdSense mewajibkan navigasi yang jelas. Breadcrumbs membantu bot memahami struktur situs. -->
-    <nav aria-label="Breadcrumb" class="mb-6 text-sm text-gray-500">
-        <ol class="list-none p-0 inline-flex">
-            <li class="flex items-center">
-                <a href="/" class="hover:text-red-600 hover:underline">Home</a>
-                <svg class="fill-current w-3 h-3 mx-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><path d="M285.476 272.971L91.132 467.314c-9.373 9.373-24.569 9.373-33.941 0l-22.667-22.667c-9.357-9.357-9.375-24.522-.04-33.901L188.505 256 34.484 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L285.475 239.03c9.373 9.372 9.373 24.568.001 33.941z"/></svg>
-            </li>
-            <li class="font-semibold text-gray-700">
-                {{ .Title }}
-            </li>
-        </ol>
-    </nav>
+<!-- 1. CONTAINER UTAMA (Kita samakan jadi max-w-6xl agar muat Sidebar) -->
+<div class="container mx-auto px-4 py-8 max-w-6xl">
 
-    <!-- Header Halaman -->
-    <header class="mb-10 text-center border-b border-gray-200 pb-8">
-        <h1 class="font-display font-black text-4xl md:text-5xl text-gray-900 mb-4 uppercase tracking-tight">
-            {{ .Title }}
-        </h1>
-        
-        <!-- 2. META DATA (Trust Signal) -->
-        <!-- Menampilkan kapan terakhir diupdate penting untuk "Valuable Inventory" policy -->
-        <div class="text-sm text-gray-400 mb-4 font-mono">
-            Last Updated: <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
-        </div>
+    <!-- 2. LAYOUT FLEXBOX (Kiri Konten, Kanan Sidebar) -->
+    <div class="flex flex-col lg:flex-row gap-10 items-start">
 
-        {{ with .Description }}
-        <p class="text-gray-500 text-lg font-medium italic">
-            {{ . }}
-        </p>
-        {{ end }}
-    </header>
+        <!-- ==========================
+             KOLOM KIRI: KONTEN HALAMAN (70%)
+             ========================== -->
+        <article class="w-full lg:w-8/12 bg-white min-w-0">
+            
+            <!-- Breadcrumb -->
+            <nav aria-label="Breadcrumb" class="mb-4 text-sm text-gray-500 font-bold uppercase tracking-wide">
+                <a href="/" class="hover:text-red-600">Home</a> 
+                <span class="mx-2">/</span>
+                <span class="text-gray-900">{{ .Title }}</span>
+            </nav>
 
-    <!-- 3. SLOT IKLAN ATAS (Opsional tapi Efektif) -->
-    <!-- Gunakan conditional check agar iklan tidak muncul di halaman Privacy Policy/Contact jika tidak diinginkan -->
-    {{ if not (in .Params.categories "Legal") }} 
-    <div class="ad-container my-8 text-center min-h-[100px] bg-gray-50">
-        <span class="text-xs text-gray-300">Advertisement</span>
-        <!-- Paste Kode Iklan Display AdSense Di Sini -->
-    </div>
-    {{ end }}
+            <!-- Header Halaman -->
+            <header class="mb-6 border-b border-gray-200 pb-6">
+                <h1 class="text-3xl lg:text-4xl font-black text-gray-900 leading-tight mb-4 uppercase">
+                    {{ .Title }}
+                </h1>
+                
+                <!-- Tanggal Update (Penting untuk Trust AdSense) -->
+                <div class="text-xs text-gray-500 font-mono">
+                    Last Updated: <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
+                </div>
 
-    <!-- Konten Halaman -->
-    <!-- Article tag sangat bagus untuk AdSense crawler -->
-    <article class="prose prose-lg prose-red max-w-none 
-                    prose-headings:font-bold prose-headings:text-gray-900 
-                    prose-p:text-gray-700 prose-li:text-gray-700
-                    prose-a:text-red-600 prose-a:no-underline hover:prose-a:underline">
-        
-        {{ .Content }}
+                {{ with .Description }}
+                <p class="text-gray-600 text-lg font-medium italic mt-4">
+                    {{ . }}
+                </p>
+                {{ end }}
+            </header>
 
-    </article>
+            <!-- GAMBAR UTAMA (FEATURED IMAGE) -->
+            <!-- Sekarang gambar akan muncul di Page juga -->
+            {{ if .Params.featured_image }}
+            <figure class="mb-8 w-full h-auto rounded-lg overflow-hidden shadow-sm border border-gray-100">
+                <img src="{{ .Params.featured_image | absURL }}" 
+                     alt="{{ .Title }}" 
+                     class="w-full h-full object-cover">
+            </figure>
+            {{ end }}
 
-    <!-- 4. SLOT IKLAN BAWAH -->
-    {{ if not (in .Params.categories "Legal") }}
-    <div class="ad-container mt-12 text-center min-h-[250px] bg-gray-50">
-         <span class="text-xs text-gray-300">Advertisement</span>
-         <!-- Paste Kode Iklan Multiplex/Display Di Sini -->
-    </div>
-    {{ end }}
+            <!-- SLOT IKLAN ATAS -->
+            {{ if not (in .Params.categories "Legal") }} 
+            <div class="my-6 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
+                <!-- Paste Kode Iklan Display AdSense Di Sini -->
+                <div class="h-[100px] flex items-center justify-center text-gray-300 text-xs">
+                    Slot Iklan Atas
+                </div>
+            </div>
+            {{ end }}
 
+            <!-- KONTEN -->
+            <div class="prose prose-lg prose-red max-w-none text-gray-800 leading-relaxed">
+                {{ .Content }}
+            </div>
+
+            <!-- SLOT IKLAN BAWAH -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="mt-10 w-full bg-gray-50 border border-gray-200 p-4 text-center rounded">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Advertisement</span>
+                <!-- Paste Kode Iklan Multiplex Di Sini -->
+                <div class="h-[250px] flex items-center justify-center text-gray-300 text-xs">
+                    Slot Iklan Bawah
+                </div>
+            </div>
+            {{ end }}
+
+        </article>
+
+        <!-- ==========================
+             KOLOM KANAN: SIDEBAR (30%)
+             ========================== -->
+        <!-- SEKARANG PAGE PUNYA SIDEBAR! -->
+        <aside class="w-full lg:w-4/12 space-y-8 sticky top-24">
+            
+            <!-- WIDGET IKLAN SIDEBAR -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="bg-white border border-gray-200 p-4 rounded shadow-sm flex flex-col items-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
+                <!-- Iklan Vertical -->
+                <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                    AdSense Vertical 300x600
+                </div>
+            </div>
+            {{ end }}
+
+            <!-- WIDGET NAVIGASI -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+                <h3 class="font-black text-gray-900 uppercase border-l-4 border-red-600 pl-3 mb-4 text-sm">
+                    Explore
+                </h3>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li><a href="/" class="hover:text-red-600 block py-1 border-b border-gray-100">Home</a></li>
+                    <li><a href="/about" class="hover:text-red-600 block py-1 border-b border-gray-100">About Us</a></li>
+                    <li><a href="/contact" class="hover:text-red-600 block py-1 border-b border-gray-100">Contact</a></li>
+                    <li><a href="/privacy-policy" class="hover:text-red-600 block py-1 border-b border-gray-100">Privacy Policy</a></li>
+                </ul>
+            </div>
+
+        </aside>
+
+    </div> <!-- End Flex -->
 </div>
 {{ end }}
