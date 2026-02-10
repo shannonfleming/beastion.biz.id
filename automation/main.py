@@ -65,13 +65,12 @@ RSS_SOURCES = {
     "SkySports": "https://www.skysports.com/rss/12040",
     "BBC Football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
     "ESPN FC": "https://www.espn.com/espn/rss/soccer/news",
-        "US Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en",
-    "UK Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-GB&gl=GB&ceid=GB:en",
-    "SkySports": "https://www.skysports.com/rss/12040"
+    "US Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-US&gl=US&ceid=US:en",
+    "UK Source": "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=en-GB&gl=GB&ceid=GB:en"
 }
 
 # 5. DIRECTORIES
-CONTENT_DIR = "content/posts"  # Pastikan sesuai folder Hugo Anda
+CONTENT_DIR = "content/posts"
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
@@ -84,7 +83,7 @@ FALLBACK_IMAGES = [
 ]
 
 # ==========================================
-# 🧠 MEMORY & LINKING SYSTEM
+# 🧠 MEMORY & LINKING SYSTEM (TETAP UTUH)
 # ==========================================
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
@@ -96,7 +95,7 @@ def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
     memory[title] = f"/{slug}"
-    if len(memory) > 60: # Simpan 60 link terakhir
+    if len(memory) > 60: 
         memory = dict(list(memory.items())[-60:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
@@ -104,7 +103,6 @@ def get_formatted_internal_links():
     memory = load_link_memory()
     items = list(memory.items())
     if not items: return ""
-    # Ambil 3-4 link random untuk footer artikel
     selected_items = random.sample(items, min(4, len(items)))
     formatted_links = []
     for title, url in selected_items:
@@ -112,7 +110,7 @@ def get_formatted_internal_links():
     return "\n".join(formatted_links)
 
 # ==========================================
-# 📡 INDEXING & RSS TOOLS
+# 📡 INDEXING & RSS TOOLS (TETAP UTUH)
 # ==========================================
 def fetch_rss_feed(url):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
@@ -150,13 +148,12 @@ def submit_to_indexnow(url):
     except: pass
 
 # ==========================================
-# 🎨 IMAGE ENGINE (OPTIMIZED)
+# 🎨 IMAGE ENGINE (TETAP UTUH)
 # ==========================================
 def download_and_optimize_image(query, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
 
-    # Prompt Image Gen yang Lebih Realistis (Flux)
     base_prompt = f"sports press photography, {query}, realistic stadium background, 4k, canon eos r5, sharp focus, cinematic lighting, no text"
     safe_prompt = base_prompt.replace(" ", "%20")[:400]
     
@@ -170,12 +167,10 @@ def download_and_optimize_image(query, filename):
             response = requests.get(image_url, timeout=45)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                
-                # Image Enhancement (Agar Gambar Pop-Up)
                 enhancer_sharp = ImageEnhance.Sharpness(img)
-                img = enhancer_sharp.enhance(1.3) # Sedikit lebih tajam
+                img = enhancer_sharp.enhance(1.3)
                 enhancer_color = ImageEnhance.Color(img)
-                img = enhancer_color.enhance(1.1) # Warna sedikit lebih hidup
+                img = enhancer_color.enhance(1.1)
 
                 output_path = f"{IMAGE_DIR}/{filename}"
                 img.save(output_path, "WEBP", quality=85)
@@ -186,108 +181,104 @@ def download_and_optimize_image(query, filename):
         except Exception:
             time.sleep(2)
     
-    print("      ⚠️ Image gen failed. Using Fallback.")
     return random.choice(FALLBACK_IMAGES)
 
 # ==========================================
-# 🤖 DYNAMIC STRUCTURE LOGIC (ANTI-ADBSENSE DETECT)
+# 🧠 NEW: DYNAMIC NARRATIVE ENGINE (LOGIKA BARU)
 # ==========================================
-def get_dynamic_structure_prompt(title):
+def get_narrative_style(title, summary):
     """
-    Fungsi ini menentukan struktur artikel berdasarkan keyword judul.
-    Tujuannya agar struktur H2/H3 tidak monoton (Boilerplate).
+    Menentukan 'Angle' atau Sudut Pandang Unik agar artikel tidak generik.
     """
-    title_lower = title.lower()
+    text = (title + " " + summary).lower()
     
-    if any(x in title_lower for x in ['transfer', 'sign', 'deal', 'bid', 'contract']):
-        # STRUKTUR A: BERITA TRANSFER
-        return """
-        MANDATORY STRUCTURE:
-        1. **Executive Summary**: The core news in bold.
-        2. **H2: The Deal Breakdown**: Fee, wages, contract length (use a Markdown Table).
-        3. **H2: Tactical Fit**: Where does he play?
-        4. **H2: The Ripple Effect**: How this impacts the squad.
-        5. **H2: Final Verdict**: Is it a good signing?
-        """
-    elif any(x in title_lower for x in ['vs', 'win', 'loss', 'draw', 'score']):
-        # STRUKTUR B: MATCH REPORT
-        return """
-        MANDATORY STRUCTURE:
-        1. **Match Summary**: Brief result overview.
-        2. **H2: Key Moments**: The turning points of the game.
-        3. **H2: Tactical Battle**: Manager decisions.
-        4. **H2: Player Ratings / MVP**: Who shone?
-        5. **H2: Stat Attack**: Markdown table of key stats (Possession, xG, Shots).
-        6. **H2: What's Next**: Upcoming fixtures.
-        """
+    # 1. GAYA: TRANSFER INSIDER (Fokus Uang & Kontrak)
+    if any(x in text for x in ['transfer', 'deal', 'fee', 'bid', 'sign', 'loan']):
+        return "THE INSIDER", "Focus on the financial breakdown, agent involvement, contract length, and how this signing fits the tactical jigsaw. Use headers like 'The Financial Package' or 'Where He Fits'."
+
+    # 2. GAYA: TACTICAL ANALYST (Fokus Data & Strategi)
+    elif any(x in text for x in ['vs', 'win', 'loss', 'tactic', 'formation', 'xg', 'draw']):
+        return "THE ANALYST", "Focus on Expected Goals (xG), formations, key player battles, and manager decisions. Use headers like 'The Midfield Battle' or 'Defensive Fragility'."
+
+    # 3. GAYA: HISTORIAN (Fokus Sejarah & Rekor)
+    elif any(x in text for x in ['record', 'history', 'year', 'legend', 'anniversary']):
+        return "THE HISTORIAN", "Compare this event to historical precedents. Use nostalgic tone. Headers like 'Echoes of the Past' or 'Breaking the Curse'."
+
+    # 4. GAYA: COLUMNIST (Fokus Opini & Drama)
     else:
-        # STRUKTUR C: UMUM / OPINI
-        return """
-        MANDATORY STRUCTURE:
-        1. **Introduction**: Setting the scene.
-        2. **H2: The Context**: Why this news matters now.
-        3. **H2: The Analysis**: Deep dive into the issue.
-        4. **H2: Fan Reaction**: What are people saying?
-        5. **H2: Conclusion**: Expert opinion.
-        """
+        return "THE COLUMNIST", "Focus on the narrative, fan sentiment, and future implications. Be opinionated. Headers like 'Why Fans Are Furious' or 'The turning Point'."
+
+def get_banned_words_instruction():
+    """
+    Daftar kata yang DILARANG jadi Header agar struktur unik.
+    """
+    return "You are FORBIDDEN from using these generic headers: 'Introduction', 'Conclusion', 'The Context', 'The Analysis', 'Summary', 'Overview'. You must invent CREATIVE headers based on the content."
 
 # ==========================================
-# 🤖 AI WRITER ENGINE (ANTI-HOAX)
+# 🤖 AI WRITER ENGINE (MODIFIED FOR 1000+ WORDS)
 # ==========================================
 def get_groq_article_json(title, summary, link, internal_links_block, author_name):
     
-    # 1. TANGGAL HARI INI (PENTING UNTUK ANTI-HOAX)
     current_date = datetime.now().strftime("%Y-%m-%d")
-    
-    # 2. STRUKTUR DINAMIS
-    structure_prompt = get_dynamic_structure_prompt(title)
+    narrative_style, specific_instructions = get_narrative_style(title, summary)
+    banned_instruction = get_banned_words_instruction()
     
     system_prompt = f"""
-    You are {author_name}, a senior sports journalist for 'beastion.biz.id'.
+    You are {author_name}, a top-tier sports journalist.
     TODAY'S DATE: {current_date}.
     
-    TASK: Write a unique, high-quality article based on the input.
+    YOUR GOAL: Write a **DEEP DIVE FEATURE ARTICLE** (Minimum 1000 words).
+    NARRATIVE STYLE: {narrative_style}.
     
-    CRITICAL ANTI-HOAX RULES:
-    1. **CHECK THE DATE:** 
-       - If the match/event is in the FUTURE relative to {current_date}, write a **PREVIEW** or **PREDICTION**. Do NOT invent a final score.
-       - If it is PAST, write a **REPORT**.
-    2. **NO HALLUCINATION:** Do not invent fake quotes. Use generic editorial statements if specific quotes aren't in the snippet.
+    {banned_instruction}
     
-    {structure_prompt}
+    SPECIFIC INSTRUCTIONS FOR THIS STYLE:
+    {specific_instructions}
+    
+    CRITICAL RULES:
+    1. **ANTI-HOAX:** Check the date. If the match is in the future, write a PREVIEW/PREDICTION. If past, write a REPORT.
+    2. **RICH CONTENT:** You MUST include at least one Markdown Table (e.g., Stats, H2H, Transfer Fee Breakdown).
+    3. **READABILITY:** Use short paragraphs, **bold** for emphasis, and > blockquotes for key takeaways.
+    4. **STRUCTURE:** Do not use a fixed template. Flow naturally from the Hook -> Deep Analysis -> Future Implications.
     
     JSON OUTPUT FORMAT:
     {{
-        "title": "Engaging Headline (SEO Optimized, No Clickbait)",
-        "description": "Meta description (max 150 chars)",
-        "category": "Pick one: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
-        "main_keyword": "Main entity for image generation (e.g. 'Manchester United Stadium' or 'Lionel Messi')",
+        "title": "A Viral, Specific Headline (No Clickbait)",
+        "description": "SEO description (max 150 chars)",
+        "category": "One of: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
+        "main_keyword": "Main entity for image generation",
         "lsi_keywords": ["tag1", "tag2", "tag3"],
-        "content_body": "Full article content in Markdown format..."
+        "content_body": "The full 1000+ word article in Markdown..."
     }}
     """
 
     user_prompt = f"""
-    News Title: {title}
-    Snippet: {summary}
-    Source Link: {link}
+    TOPIC: {title}
+    DETAILS: {summary}
+    SOURCE LINK: {link}
     
-    Insert these Internal Links naturally under a 'Read More' header at the end:
+    WRITING PLAN (To ensure length):
+    - **Section 1 (The Hook):** 200 words. Grab attention, set the scene.
+    - **Section 2 (The Deep Dive):** 400 words. Analyzing the core issue/match details. Include DATA/TABLE here.
+    - **Section 3 (The Context/Reaction):** 300 words. Quotes, fan mood, historical comparison.
+    - **Section 4 (The Verdict):** 200 words. Strong closing opinion (Not just a summary).
+    
+    At the very end, add this 'Read More' section:
     {internal_links_block}
     """
 
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing ({author_name})...")
+            print(f"      🤖 AI Writing ({author_name} - {narrative_style})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.6, # Balance antara kreatif dan akurat
-                max_tokens=6500,
+                temperature=0.7, 
+                max_tokens=7000, # Max token besar untuk artikel panjang
                 response_format={"type": "json_object"}
             )
             return completion.choices[0].message.content
@@ -301,17 +292,16 @@ def get_groq_article_json(title, summary, link, internal_links_block, author_nam
     return None
 
 # ==========================================
-# 🏁 MAIN LOOP
+# 🏁 MAIN LOOP (TETAP UTUH)
 # ==========================================
 def main():
-    # Setup Directories
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
 
-    print("🔥 STARTING AUTOMATION ENGINE (FULL VERSION)...")
+    print("🔥 STARTING ENGINE: 1000+ WORDS & UNIQUE STRUCTURE MODE...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -323,22 +313,19 @@ def main():
         for entry in feed.entries:
             if cat_success_count >= TARGET_PER_SOURCE: break
 
-            # 1. Filter Judul & Slug
             clean_title = entry.title.split(" - ")[0]
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
 
-            # 2. Skip jika file sudah ada
             if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
                 continue
 
-            # 3. Pilih Author & Siapkan Links
             current_author = random.choice(AUTHOR_PROFILES)
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
             links_block = get_formatted_internal_links()
             
-            # 4. Generate AI Content (JSON)
+            # Generate AI Content
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, links_block, current_author)
             
             if not raw_json: continue
@@ -349,16 +336,14 @@ def main():
                 print("      ❌ JSON Decode Error. Skipping.")
                 continue
 
-            # 5. Validasi Kategori
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
-            # 6. Generate Gambar (Image Engine)
+            # Generate Image
             img_name = f"{slug}.webp"
             keyword_for_image = data.get('main_keyword') or clean_title
             final_img = download_and_optimize_image(keyword_for_image, img_name)
             
-            # 7. Metadata (Markdown Frontmatter)
             date_now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
             tags_list = data.get('lsi_keywords', [])
             
@@ -380,16 +365,13 @@ draft: false
 ---
 *Reference: Analysis based on reports from [{source_name}]({entry.link}). Content generated for informational purposes.*
 """
-            # 8. Save File
             with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
                 f.write(md_content)
             
-            # 9. Update Memory & Indexing
             save_link_to_memory(data['title'], slug)
             
             print(f"      ✅ Published: {filename}")
             
-            # Indexing Auto
             full_url = f"{WEBSITE_URL}/{slug}/"
             submit_to_indexnow(full_url)
             submit_to_google(full_url)
@@ -397,8 +379,8 @@ draft: false
             cat_success_count += 1
             total_generated += 1
             
-            # 10. Sleep (Anti-Spam)
-            time.sleep(5)
+            # Sleep lebih lama agar AI tidak "burnout" dan hasil tetap bagus
+            time.sleep(8)
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
 
