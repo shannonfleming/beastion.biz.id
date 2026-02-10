@@ -73,16 +73,7 @@
              ========================== -->
         <aside class="w-full lg:w-4/12 space-y-8 sticky top-24">
             
-            <!-- 1. WIDGET IKLAN SIDEBAR -->
-            {{ if not (in .Params.categories "Legal") }}
-            <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm flex flex-col items-center">
-                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
-                <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-mono">
-                    [ AdSense Vertical 300x600 ]
-                </div>
-            </div>
-            {{ end }}
-
+           
             <!-- 2. WIDGET LATEST NEWS (LOGIC DIPERBAIKI) -->
             <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
                 <div class="p-4 border-b border-gray-100 bg-gray-50">
@@ -127,6 +118,17 @@
                         </div>
                     </a>
                     {{ end }}
+
+                     <!-- 1. WIDGET IKLAN SIDEBAR -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm flex flex-col items-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
+                <div class="w-[300px] h-[600px] bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-mono">
+                    [ AdSense Vertical 300x600 ]
+                </div>
+            </div>
+            {{ end }}
+
                 </div>
             </div>
 
