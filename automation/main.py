@@ -330,6 +330,7 @@ tags: {json.dumps(data.get('tags', []))}
 featured_image: "{final_img}"
 description: "{data['description'].replace('"', "'")}"
 slug: "{slug}"
+url: "/{slug}/"
 draft: false
 weight: {random.randint(1, 10)}
 ---
