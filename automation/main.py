@@ -22,7 +22,7 @@ try:
     from googleapiclient.discovery import build
     GOOGLE_LIBS_AVAILABLE = True
 except ImportError:
-    print("⚠️ Warning: Google Indexing libs not installed. Running without Google Indexing.")
+    print("⚠️ Warning: Google Indexing libs not installed.")
     GOOGLE_LIBS_AVAILABLE = False
 
 # ==========================================
@@ -38,7 +38,7 @@ INDEXNOW_KEY = "e74819b68a0f40e98f6ec3dc24f610f0"
 GOOGLE_JSON_KEY = os.environ.get("GOOGLE_INDEXING_KEY", "") 
 
 if not GROQ_API_KEYS:
-    print("❌ FATAL ERROR: Groq API Key is missing! Set 'GROQ_API_KEY' env variable.")
+    print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
 # 2. TIM PENULIS (LENGKAP)
@@ -48,21 +48,16 @@ AUTHOR_PROFILES = [
     "Luca Romano (Transfer Specialist)", 
     "Marcus Reynolds (Premier League Correspondent)",
     "Elena Petrova (Tactical Expert)", 
-    "Ben Foster (Sports Journalist)",
-    "Mateo Rodriguez (European Football Analyst)"
+    "Ben Foster (Sports Journalist)"
 ]
 
 # 3. KATEGORI RESMI
 VALID_CATEGORIES = [
-    "Transfer News", 
-    "Premier League", 
-    "Champions League", 
-    "La Liga", 
-    "International", 
-    "Tactical Analysis"
+    "Transfer News", "Premier League", "Champions League", 
+    "La Liga", "International", "Tactical Analysis"
 ]
 
-# 4. SUMBER RSS (LENGKAP SESUAI REQUEST)
+# 4. SUMBER RSS
 RSS_SOURCES = {
     "SkySports": "https://www.skysports.com/rss/12040",
     "BBC Football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
@@ -97,18 +92,15 @@ def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
     memory[title] = f"/{slug}"
-    # Simpan 100 link terakhir
     if len(memory) > 100: 
         memory = dict(list(memory.items())[-100:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def get_internal_links_markdown():
-    """Mengambil 3 link acak untuk disisipkan."""
     memory = load_link_memory()
     items = list(memory.items())
     if not items: return ""
-    
-    selected_items = random.sample(items, min(3, len(items)))
+    selected_items = random.sample(items, min(4, len(items)))
     links_md = ""
     for title, url in selected_items:
         links_md += f"- [{title}]({url})\n"
@@ -116,28 +108,21 @@ def get_internal_links_markdown():
 
 def inject_links_in_middle(content_body, links_markdown):
     """
-    LOGIC BARU: Menyisipkan link di PARAGRAF KE-3 (Tengah Artikel).
+    Menyuntikkan link di Tengah Artikel (Paragraf ke-4 atau ke-5).
     """
     if not links_markdown: return content_body
     
-    # Pecah artikel berdasarkan baris kosong (paragraf)
     paragraphs = content_body.split('\n\n')
-    
-    # Buat blok link yang rapi (Blockquote style agar menonjol)
     injection_block = f"""
 > **Recommended for you:**
 >
 {"> " + links_markdown.replace("- ", "> - ")}
 """
-
-    # Suntikkan di posisi strategis
-    if len(paragraphs) > 5:
-        paragraphs.insert(3, injection_block) # Insert setelah paragraf ke-3
-    elif len(paragraphs) > 2:
-        paragraphs.insert(1, injection_block) # Insert setelah paragraf ke-1 jika pendek
-    else:
-        paragraphs.append(injection_block) # Taruh bawah jika sangat pendek
-        
+    # Cari posisi tengah yang aman
+    target_index = min(4, len(paragraphs) - 1)
+    if target_index < 1: target_index = 1
+    
+    paragraphs.insert(target_index, injection_block)
     return '\n\n'.join(paragraphs)
 
 # ==========================================
@@ -179,13 +164,13 @@ def submit_to_indexnow(url):
     except: pass
 
 # ==========================================
-# 🎨 IMAGE ENGINE (FLUX + ENHANCER)
+# 🎨 IMAGE ENGINE
 # ==========================================
 def download_and_optimize_image(query, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
 
-    base_prompt = f"sports press photography, {query}, realistic stadium background, 4k, canon eos r5, sharp focus, cinematic lighting, no text"
+    base_prompt = f"editorial sports photography, {query}, realistic stadium background, 4k, canon eos r5, sharp focus, cinematic lighting, no text"
     safe_prompt = base_prompt.replace(" ", "%20")[:400]
     
     print(f"      🎨 Generating Image: {query[:30]}...")
@@ -198,8 +183,6 @@ def download_and_optimize_image(query, filename):
             response = requests.get(image_url, timeout=45)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                
-                # Optimasi
                 enhancer_sharp = ImageEnhance.Sharpness(img)
                 img = enhancer_sharp.enhance(1.3)
                 enhancer_color = ImageEnhance.Color(img)
@@ -207,89 +190,134 @@ def download_and_optimize_image(query, filename):
 
                 output_path = f"{IMAGE_DIR}/{filename}"
                 img.save(output_path, "WEBP", quality=85)
-                
-                print(f"      📸 Image Saved: {filename}")
                 return f"/images/{filename}" 
 
         except Exception:
             time.sleep(2)
     
-    print("      ⚠️ Image gen failed. Using Fallback.")
     return random.choice(FALLBACK_IMAGES)
 
 # ==========================================
-# 🧠 AI LOGIC: DYNAMIC STRUCTURE (1000+ WORDS)
+# 🧠 MEGA-PROMPT ENGINE (1500 WORDS + H3/H4)
 # ==========================================
-def get_structure_instructions(title):
-    """Menentukan Struktur Artikel Berdasarkan Judul"""
-    t = title.lower()
-    if any(x in t for x in ['transfer', 'bid', 'sign', 'fee', 'loan', 'contract']):
-        return "TRANSFER_ANALYSIS", """
-        - H2: The Financial Details (MUST include a Markdown Table of fees/wages)
-        - H2: Where He Fits (Tactical Fit)
-        - H2: The Ripple Effect on the Squad
-        - H2: Verdict: Bust or Bargain?
+def get_article_blueprint(title, summary):
+    """
+    Membuat Kerangka Artikel yang Sangat Detail (H2 -> H3 -> H4)
+    Ini adalah kunci agar AI menulis panjang.
+    """
+    text = (title + " " + summary).lower()
+    
+    if any(x in text for x in ['transfer', 'sign', 'bid', 'fee', 'contract']):
+        return "TRANSFER_SAGA", """
+        **SECTION 1: THE DEAL (300 Words)**
+        - H2: The Financial Breakdown
+          - H3: Transfer Fee & Wages Structure (Use Markdown Table)
+          - H3: The Contract Clauses Explained
+            - H4: Buy-back clauses and Bonuses
+        
+        **SECTION 2: PLAYER PROFILE (400 Words)**
+        - H2: Who is He? A Deep Dive
+          - H3: Strengths & Playing Style
+            - H4: Statistical Analysis (vs previous season)
+          - H3: Weaknesses & Areas for Improvement
+        
+        **SECTION 3: TACTICAL FIT (300 Words)**
+        - H2: How He Fits the System
+          - H3: The Manager's Plan
+            - H4: Potential Lineup Changes
+        
+        **SECTION 4: THE VERDICT (250 Words)**
+        - H2: Conclusion & Rating
+          - H3: Is it a Good Deal?
         """
-    elif any(x in t for x in ['vs', 'win', 'loss', 'score', 'highlight']):
+        
+    elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight', 'draw']):
         return "MATCH_DEEP_DIVE", """
-        - H2: The Key Turning Point
-        - H2: Tactical Battle (Manager vs Manager)
-        - H2: Player Ratings & Stats (MUST include a Markdown Table)
-        - H2: What This Means for the Season
+        **SECTION 1: THE NARRATIVE (300 Words)**
+        - H2: Match Overview & Context
+          - H3: Pre-match Expectations vs Reality
+          
+        **SECTION 2: TACTICAL ANALYSIS (400 Words)**
+        - H2: Where the Game Was Won
+          - H3: The Midfield Battle
+            - H4: Key Player Movements and Heatmaps
+          - H3: Defensive Organization
+            - H4: Critical Errors Analyzed
+            
+        **SECTION 3: KEY MOMENTS (300 Words)**
+        - H2: Turning Points
+          - H3: The Goals Broken Down
+          - H3: Controversial Decisions (VAR/Referee)
+          
+        **SECTION 4: DATA & RATINGS (300 Words)**
+        - H2: Statistical Breakdown
+          - H3: Player Ratings (Use Markdown Table)
+          - H3: xG (Expected Goals) Analysis
         """
+        
     else:
         return "EDITORIAL_FEATURE", """
-        - H2: The Context You Missed
-        - H2: Deep Data Dive (MUST include a Markdown Table)
-        - H2: Historical Parallels
-        - H2: Expert Conclusion
+        **SECTION 1: THE CONTEXT (300 Words)**
+        - H2: Background of the Story
+          - H3: Timeline of Events
+            - H4: How we got here
+            
+        **SECTION 2: THE CORE ISSUE (400 Words)**
+        - H2: Deep Analysis of the Problem
+          - H3: The Data Behind the Story (Markdown Table Required)
+          - H3: Comparisons to Historical Events
+            - H4: Similar cases in the past
+            
+        **SECTION 3: PERSPECTIVES (300 Words)**
+        - H2: What People Are Saying
+          - H3: Fan Reactions & Sentiment
+          - H3: Expert Opinions
+          
+        **SECTION 4: FUTURE OUTLOOK (250 Words)**
+        - H2: What Happens Next?
+          - H3: Short-term vs Long-term Implications
         """
 
 def get_groq_article_json(title, summary, link, author_name):
     
     current_date = datetime.now().strftime("%Y-%m-%d")
-    style, specific_headers = get_structure_instructions(title)
+    blueprint_type, blueprint_structure = get_article_blueprint(title, summary)
     
     system_prompt = f"""
-    You are {author_name}, a world-class sports journalist.
+    You are {author_name}, a world-class sports journalist known for long-form analysis.
     TODAY'S DATE: {current_date}.
     
-    YOUR MISSION: Write a **1200-WORD** Feature Article.
-    STYLE: {style}.
+    YOUR GOAL: Write a **1500-WORD** Deep Dive Article.
     
-    FORBIDDEN: Do NOT use generic headers like "Introduction", "Conclusion", "Summary".
-    REQUIRED: Use these specific narrative angles:
-    {specific_headers}
+    CRITICAL INSTRUCTION:
+    You MUST follow the "Blueprint" below. You must generate H2, H3, and H4 headers exactly as requested to ensure depth.
+    Do NOT summarize. EXPAND on every single point.
+    
+    BLUEPRINT STRUCTURE:
+    {blueprint_structure}
     
     ANTI-HOAX RULES:
-    1. If event date > {current_date} -> Write PREVIEW.
-    2. If event date <= {current_date} -> Write REPORT.
-    3. Do NOT invent fake quotes.
+    1. If event date > {current_date} -> Write PREVIEW/PREDICTION.
+    2. If event date <= {current_date} -> Write REPORT/ANALYSIS.
+    3. Include at least ONE Markdown Table.
     
-    JSON FORMAT:
+    JSON OUTPUT FORMAT:
     {{
-        "title": "Viral Headline (Max 65 chars, No Clickbait)",
-        "description": "SEO Meta Description",
-        "category": "Pick one: {', '.join(VALID_CATEGORIES)}",
-        "main_keyword": "Entity for image gen",
-        "tags": ["tag1", "tag2"],
-        "content_body": "Full Markdown content..."
+        "title": "Viral Headline (Max 70 chars, Editorial Style)",
+        "description": "SEO Description (160 chars)",
+        "category": "Pick one: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
+        "main_keyword": "Entity for image generation",
+        "tags": ["tag1", "tag2", "tag3"],
+        "content_body": "Full Markdown content with H2, H3, H4..."
     }}
     """
 
     user_prompt = f"""
     TOPIC: {title}
-    CONTEXT: {summary}
-    SOURCE: {link}
+    DETAILS: {summary}
+    SOURCE LINK: {link}
     
-    WRITING PLAN (TO ENSURE 1200 WORDS):
-    1. **The Lead (250 words):** Hook the reader, set the high stakes.
-    2. **The Context (300 words):** Background info, previous form.
-    3. **The Deep Analysis (400 words):** Detailed tactical breakdown. MUST INCLUDE A MARKDOWN TABLE.
-    4. **The Human Element (250 words):** Fan reactions, player body language.
-    5. **The Verdict (150 words):** Strong closing opinion.
-    
-    IMPORTANT: Do NOT include a 'Read More' or 'Links' section. 
+    Execute the Blueprint now. Make it long, detailed, and data-driven.
     """
 
     for api_key in GROQ_API_KEYS:
@@ -298,9 +326,12 @@ def get_groq_article_json(title, summary, link, author_name):
             print(f"      🤖 AI Writing ({author_name})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
                 temperature=0.7, 
-                max_tokens=8000, 
+                max_tokens=8000, # Max token besar untuk artikel panjang
                 response_format={"type": "json_object"}
             )
             return completion.choices[0].message.content
@@ -322,7 +353,7 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
-    print("🔥 STARTING ENGINE (COMPLETE VERSION)...")
+    print("🔥 STARTING ENGINE (MEGA-CONTENT MODE: H2/H3/H4)...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -376,7 +407,7 @@ author: "{current_author.split('(')[0].strip()}"
 categories: ["{data['category']}"]
 tags: {json.dumps(tags_list)}
 featured_image: "{final_img}"
-featured_image_alt: "Image showing {data.get('main_keyword', 'Football Match')}"
+featured_image_alt: "{data.get('main_keyword')}"
 description: "{data['description'].replace('"', "'")}"
 slug: "{slug}"
 draft: false
@@ -402,7 +433,7 @@ draft: false
             cat_success_count += 1
             total_generated += 1
             
-            time.sleep(8) # Istirahat agak lama agar AI tidak error
+            time.sleep(10) # Istirahat lebih lama untuk artikel panjang
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
 
