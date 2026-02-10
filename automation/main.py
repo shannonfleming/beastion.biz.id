@@ -40,7 +40,7 @@ if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
-# TIM PENULIS (Persona Spesialis - Meningkatkan E-E-A-T AdSense)
+# TIM PENULIS
 AUTHOR_PROFILES = [
     "Dave Harsya (Tactical Analyst)", "Sarah Jenkins (Senior Editor)",
     "Luca Romano (Market Expert)", "Marcus Reynolds (League Correspondent)",
@@ -65,7 +65,7 @@ DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 TARGET_PER_SOURCE = 1 
 
-# Unsplash ID Pool (Backup Image yang Aman)
+# Unsplash ID Pool
 UNSPLASH_IDS = [
     "1522778119026-d647f0565c6a", "1489944440615-453fc2b6a9a9", "1431324155629-1a6deb1dec8d", 
     "1579952363873-27f3bde9be2b", "1518091043644-c1d4457512c6", "1508098682722-e99c43a406b2",
@@ -73,7 +73,7 @@ UNSPLASH_IDS = [
 ]
 
 # ==========================================
-# 🧠 HELPER FUNCTIONS
+# 🧠 HELPER FUNCTIONS (CLEANER ADDED)
 # ==========================================
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
@@ -103,8 +103,29 @@ def fetch_rss_feed(url):
         return feedparser.parse(response.content) if response.status_code == 200 else None
     except: return None
 
+# --- NEW CLEANER FUNCTION ---
+def clean_ai_content(text):
+    """Membersihkan output AI dari wrapper code block dan tag HTML yang tidak perlu"""
+    if not text: return ""
+    
+    # 1. Hapus wrapper ```html atau ```markdown
+    text = re.sub(r'^```[a-zA-Z]*\n', '', text) # Hapus pembuka ```html
+    text = re.sub(r'\n```$', '', text)          # Hapus penutup ```
+    text = text.replace("```", "")              # Hapus sisa backticks
+    
+    # 2. Hapus tag HTML dasar jika AI bandel pakai HTML (Convert ke Markdown sederhana)
+    text = text.replace("<h1>", "# ").replace("</h1>", "\n")
+    text = text.replace("<h2>", "## ").replace("</h2>", "\n")
+    text = text.replace("<h3>", "### ").replace("</h3>", "\n")
+    text = text.replace("<b>", "**").replace("</b>", "**")
+    text = text.replace("<strong>", "**").replace("</strong>", "**")
+    text = text.replace("<i>", "*").replace("</i>", "*")
+    text = text.replace("<p>", "").replace("</p>", "\n\n")
+    
+    return text.strip()
+
 # ==========================================
-# 🚀 INDEXING FUNCTIONS (AKTIF)
+# 🚀 INDEXING FUNCTIONS
 # ==========================================
 def submit_to_indexnow(url):
     try:
@@ -135,7 +156,7 @@ def submit_to_google(url):
         print(f"      ⚠️ Google Indexing Error: {e}")
 
 # ==========================================
-# 🎨 HYBRID IMAGE ENGINE (High Quality)
+# 🎨 HYBRID IMAGE ENGINE
 # ==========================================
 def apply_heavy_modification(img):
     if random.random() > 0.5:
@@ -157,9 +178,7 @@ def apply_heavy_modification(img):
 def generate_hybrid_image(query, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
     print(f"      🎨 Strategy 1: AI Generating '{query}'...")
-    
-    # Prompt untuk gambar fotorealistik
-    safe_prompt = f"editorial sports photography of {query}, professional football match, stadium atmosphere, 4k, hyper-realistic --ar 16:9".replace(" ", "%20")
+    safe_prompt = f"editorial sports photography of {query}, football match action, stadium atmosphere, 4k, hyper-realistic --ar 16:9".replace(" ", "%20")
     seed = random.randint(1, 1000000)
     ai_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&model=flux-realism&seed={seed}&nologo=true"
     
@@ -167,7 +186,6 @@ def generate_hybrid_image(query, filename):
         resp = requests.get(ai_url, timeout=40)
         if resp.status_code == 200 and "image" in resp.headers.get("content-type", ""):
             img = Image.open(BytesIO(resp.content)).convert("RGB")
-            # Sedikit pertajam agar HD
             enhancer = ImageEnhance.Sharpness(img)
             img = enhancer.enhance(1.3)
             img.save(output_path, "WEBP", quality=85)
@@ -193,35 +211,30 @@ def generate_hybrid_image(query, filename):
     return "https://images.unsplash.com/photo-1522778119026-d647f0565c6a"
 
 # ==========================================
-# 🧠 QUALITY CONTENT ENGINE (ANTI-HOAX)
+# 🧠 QUALITY CONTENT ENGINE (ANTI-HTML)
 # ==========================================
 
 def get_groq_article_json(title, summary, link, author_name):
-    # Tanggal hari ini untuk memastikan AI tidak bingung waktu
     current_date = datetime.now().strftime("%Y-%m-%d")
     
-    # SYSTEM PROMPT: Jurnalis Investigasi (Bukan Penulis Fiksi)
+    # SYSTEM PROMPT: PENEGASAN MARKDOWN ONLY
     system_prompt = f"""
     You are {author_name}, a strict and professional sports journalist.
     CURRENT DATE: {current_date}.
     
-    OBJECTIVE: Write a high-quality, 1000-word analysis article based on the provided news snippet.
+    OBJECTIVE: Write a high-quality, 1000-word analysis article.
     
-    🛑 STRICT ANTI-HALLUCINATION RULES:
-    1. **CHECK THE TIMELINE:** If the news mentions a match happening "tomorrow" or "on Sunday", write a **PREVIEW** (Tactical prediction, Lineups). Do NOT invent a final score.
-    2. **NO FAKE QUOTES:** Do not make up quotes. Quote only what is in the snippet or use general analysis phrases like "The manager emphasized...".
-    3. **NO GENERIC HEADERS:**
-       - ❌ BAD: "Section 1", "Introduction", "Conclusion", "Match Analysis".
-       - ✅ GOOD: "How Palmer Dismantled the Defense", "Why the £50m Fee Makes Sense".
-       - Headers MUST be descriptive and unique.
-       
-    STRUCTURE REQUIREMENT:
-    - **Paragraph 1-2 (The Hook):** What happened? Why is it huge?
-    - **Unique H2 Header:** Deep dive into context/history.
-    - **Unique H2 Header:** Stats/Tactical breakdown (Use Markdown Table here).
-    - **Unique H2 Header:** Player/Manager focus.
-    - **Unique H2 Header:** Future implications/Verdict.
-
+    🛑 FORMATTING RULES (CRITICAL):
+    1. **USE PURE MARKDOWN ONLY.**
+    2. **DO NOT USE HTML TAGS.** (NO <table>, NO <p>, NO <h2>).
+    3. Use hashtags (#) for headers.
+    4. Use standard markdown for tables (| Col | Col |).
+    5. Do NOT wrap the content in a code block (```).
+    
+    🛑 ANTI-HALLUCINATION:
+    1. If match is future -> PREVIEW.
+    2. No fake quotes.
+    
     OUTPUT FORMAT:
     JSON Object keys: "title", "description", "category", "main_keyword", "tags", "content_body".
     """
@@ -232,7 +245,7 @@ def get_groq_article_json(title, summary, link, author_name):
     - Summary: {summary}
     - Source Link: {link}
     
-    TASK: Write the article now. Be factual, deep, and use unique headers.
+    TASK: Write the article now using MARKDOWN SYNTAX only.
     """
     
     for api_key in GROQ_API_KEYS:
@@ -245,7 +258,7 @@ def get_groq_article_json(title, summary, link, author_name):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.6, # Cukup rendah agar faktual dan tidak ngawur
+                temperature=0.6,
                 max_tokens=8000,
                 response_format={"type": "json_object"}
             )
@@ -262,7 +275,7 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: ANTI-HOAX + QUALITY MODE")
+    print("🔥 ENGINE STARTED: ANTI-HTML + CLEANER MODE")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -277,7 +290,6 @@ def main():
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
             
-            # Cek file sudah ada belum
             if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
                 continue
             
@@ -298,12 +310,13 @@ def main():
             keyword = data.get('main_keyword') or clean_title
             final_img = generate_hybrid_image(keyword, f"{slug}.webp")
             
-            # 3. Save & Format
-            links_md = get_internal_links_markdown()
-            # Inject Link di akhir
-            body_content = data['content_body'] + "\n\n### Read More\n" + links_md
+            # 3. CLEANING & FORMATTING (INI PENTING)
+            # Membersihkan tag HTML/Code Block jika AI bandel
+            clean_body = clean_ai_content(data['content_body'])
             
-            # Fallback Category
+            links_md = get_internal_links_markdown()
+            final_body = clean_body + "\n\n### Read More\n" + links_md
+            
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
@@ -321,7 +334,7 @@ draft: false
 weight: {random.randint(1, 10)}
 ---
 
-{body_content}
+{final_body}
 
 ---
 *Reference: Analysis by {author} based on reports from [{source_name}]({entry.link}).*
@@ -331,7 +344,7 @@ weight: {random.randint(1, 10)}
             
             save_link_to_memory(data['title'], slug)
             
-            # 4. Submit Indexing (Log pasti muncul)
+            # 4. Submit Indexing
             full_url = f"{WEBSITE_URL}/articles/{slug}/"
             submit_to_indexnow(full_url)
             submit_to_google(full_url)
