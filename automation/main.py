@@ -41,23 +41,20 @@ if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
-# 2. TIM PENULIS (LENGKAP)
+# 2. TIM PENULIS
 AUTHOR_PROFILES = [
-    "Dave Harsya (Senior Analyst)", 
-    "Sarah Jenkins (Chief Editor)",
-    "Luca Romano (Transfer Specialist)", 
-    "Marcus Reynolds (Premier League Correspondent)",
-    "Elena Petrova (Tactical Expert)", 
-    "Ben Foster (Sports Journalist)"
+    "Dave Harsya (Senior Analyst)", "Sarah Jenkins (Chief Editor)",
+    "Luca Romano (Transfer Specialist)", "Marcus Reynolds (Premier League Correspondent)",
+    "Elena Petrova (Tactical Expert)", "Ben Foster (Sports Journalist)"
 ]
 
-# 3. KATEGORI RESMI
+# 3. KATEGORI
 VALID_CATEGORIES = [
     "Transfer News", "Premier League", "Champions League", 
     "La Liga", "International", "Tactical Analysis"
 ]
 
-# 4. SUMBER RSS
+# 4. RSS SOURCES
 RSS_SOURCES = {
     "SkySports": "https://www.skysports.com/rss/12040",
     "BBC Football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
@@ -73,14 +70,21 @@ DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 TARGET_PER_SOURCE = 1 
 
-# 6. FALLBACK IMAGES
+# 6. FALLBACK & USER AGENTS (UNTUK ANTI-LIMIT IMAGE)
 FALLBACK_IMAGES = [
     "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1200&q=80"
 ]
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+]
+
 # ==========================================
-# 🧠 MEMORY & LINKING SYSTEM
+# 🧠 MEMORY & LINKING SYSTEM (FIXED)
 # ==========================================
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
@@ -92,15 +96,24 @@ def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
     memory[title] = f"/{slug}"
-    if len(memory) > 100: 
-        memory = dict(list(memory.items())[-100:])
+    # Simpan max 200 link terakhir
+    if len(memory) > 200: 
+        memory = dict(list(memory.items())[-200:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def get_internal_links_markdown():
     memory = load_link_memory()
     items = list(memory.items())
-    if not items: return ""
-    selected_items = random.sample(items, min(4, len(items)))
+    
+    # Kalau belum ada artikel sebelumnya, return kosong
+    if not items: 
+        print("      ℹ️ Link Memory Empty (First run? Links will appear next article)")
+        return ""
+        
+    # Ambil 3-5 link acak
+    count = min(5, len(items))
+    selected_items = random.sample(items, count)
+    
     links_md = ""
     for title, url in selected_items:
         links_md += f"- [{title}]({url})\n"
@@ -108,20 +121,33 @@ def get_internal_links_markdown():
 
 def inject_links_in_middle(content_body, links_markdown):
     """
-    Menyuntikkan link di Tengah Artikel (Paragraf ke-4 atau ke-5).
+    Menyuntikkan link secara agresif di tengah artikel.
     """
     if not links_markdown: return content_body
     
-    paragraphs = content_body.split('\n\n')
+    # Buat block rekomendasi yang cantik
     injection_block = f"""
-> **Recommended for you:**
+\n\n
+> **🔥 RECOMMENDED FOR YOU:**
 >
 {"> " + links_markdown.replace("- ", "> - ")}
+\n\n
 """
-    # Cari posisi tengah yang aman
-    target_index = min(4, len(paragraphs) - 1)
-    if target_index < 1: target_index = 1
+    # Normalisasi baris baru agar split aman
+    content_body = content_body.replace("\r\n", "\n")
+    paragraphs = content_body.split('\n\n')
     
+    # Jika paragraf sedikit, taruh di akhir saja
+    if len(paragraphs) < 3:
+        return content_body + injection_block
+        
+    # Taruh di tengah-tengah (sekitar 40-50% artikel)
+    target_index = int(len(paragraphs) * 0.4)
+    
+    # Pastikan tidak merusak Header
+    while target_index < len(paragraphs) and paragraphs[target_index].strip().startswith("#"):
+        target_index += 1
+        
     paragraphs.insert(target_index, injection_block)
     return '\n\n'.join(paragraphs)
 
@@ -129,7 +155,7 @@ def inject_links_in_middle(content_body, links_markdown):
 # 📡 INDEXING & RSS TOOLS
 # ==========================================
 def fetch_rss_feed(url):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    headers = {'User-Agent': random.choice(USER_AGENTS)}
     try:
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code != 200: return None
@@ -164,117 +190,123 @@ def submit_to_indexnow(url):
     except: pass
 
 # ==========================================
-# 🎨 IMAGE ENGINE
+# 🎨 UNLIMITED IMAGE ENGINE (ANTI-LIMIT)
 # ==========================================
 def download_and_optimize_image(query, filename):
     if not filename.endswith(".webp"):
         filename = filename.rsplit(".", 1)[0] + ".webp"
 
-    base_prompt = f"editorial sports photography, {query}, realistic stadium background, 4k, canon eos r5, sharp focus, cinematic lighting, no text"
-    safe_prompt = base_prompt.replace(" ", "%20")[:400]
+    # Bersihkan query
+    clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', query)
+    
+    # List model Pollinations (Rotasi Model agar tidak kena limit)
+    models = ["flux", "flux-realism", "any-dark", "turbo"]
     
     print(f"      🎨 Generating Image: {query[:30]}...")
 
-    for attempt in range(2):
-        seed = random.randint(1, 999999)
-        image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model=flux-realism&seed={seed}"
+    # Coba sampai 4 kali dengan parameter berbeda
+    for attempt in range(4):
+        seed = random.randint(1, 999999999)
+        model = random.choice(models)
+        
+        # Prompt yang di-encode
+        prompt_text = f"editorial sports photography, {clean_query}, stadium atmosphere, 4k, hyperrealistic, no text"
+        safe_prompt = prompt_text.replace(" ", "%20")
+        
+        # URL dengan parameter acak untuk bypass cache/limit
+        image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1200&height=675&nologo=true&model={model}&seed={seed}&enhance=true"
         
         try:
-            response = requests.get(image_url, timeout=45)
+            # Rotasi User Agent untuk setiap request
+            headers = {
+                'User-Agent': random.choice(USER_AGENTS),
+                'Referer': 'https://google.com'
+            }
+            
+            response = requests.get(image_url, headers=headers, timeout=30)
+            
             if response.status_code == 200:
+                # Optimize dengan Pillow
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                enhancer_sharp = ImageEnhance.Sharpness(img)
-                img = enhancer_sharp.enhance(1.3)
-                enhancer_color = ImageEnhance.Color(img)
-                img = enhancer_color.enhance(1.1)
-
+                
+                # Pertajam sedikit
+                enhancer = ImageEnhance.Sharpness(img)
+                img = enhancer.enhance(1.2)
+                
+                # Simpan
                 output_path = f"{IMAGE_DIR}/{filename}"
                 img.save(output_path, "WEBP", quality=85)
                 return f"/images/{filename}" 
-
-        except Exception:
-            time.sleep(2)
-    
+            
+        except Exception as e:
+            time.sleep(1) # Jeda sedikit sebelum retry
+            
+    print("      ⚠️ Image gen failed, using fallback.")
     return random.choice(FALLBACK_IMAGES)
 
 # ==========================================
-# 🧠 MEGA-PROMPT ENGINE (1500 WORDS + UNIQUE HEADERS)
+# 🧠 MEGA-PROMPT ENGINE (UNIQUE HEADERS)
 # ==========================================
 def get_article_blueprint(title, summary):
-    """
-    Blueprint Struktur Artikel.
-    Note: Teks di sini adalah PANDUAN STRUKTUR, bukan judul final.
-    """
     text = (title + " " + summary).lower()
     
     if any(x in text for x in ['transfer', 'sign', 'bid', 'fee', 'contract']):
         return "TRANSFER_SAGA", """
-        **STRUCTURE GUIDE 1: FINANCIALS (300 Words)**
-        - H2 Requirement: Create a unique headline about the Money/Cost involved.
-          - H3: Wages and Transfer Fee breakdown (Markdown Table Required).
-          - H3: Contract clauses details.
+        **SECTION 1 GUIDE: FINANCIALS**
+        - H2 Requirement: Unique headline about Money/Cost.
+          - H3: Wages/Fee breakdown (Markdown Table Required).
+          - H3: Contract clauses.
         
-        **STRUCTURE GUIDE 2: PLAYER ANALYSIS (400 Words)**
-        - H2 Requirement: Create a unique headline about the Player's Skills.
+        **SECTION 2 GUIDE: ANALYSIS**
+        - H2 Requirement: Unique headline about Skills.
           - H3: Strengths analysis.
-            - H4: Stats comparison.
           - H3: Weaknesses.
         
-        **STRUCTURE GUIDE 3: TACTICS (300 Words)**
-        - H2 Requirement: Create a unique headline about fitting into the team.
-          - H3: Manager's tactical plan.
-            - H4: Lineup changes.
+        **SECTION 3 GUIDE: TACTICS**
+        - H2 Requirement: Unique headline about Team Fit.
+          - H3: Manager's plan.
         
-        **STRUCTURE GUIDE 4: CONCLUSION (250 Words)**
-        - H2 Requirement: A powerful closing statement headline.
-          - H3: Final verdict on the deal.
+        **SECTION 4 GUIDE: VERDICT**
+        - H2 Requirement: Unique closing headline.
+          - H3: Final rating.
         """
         
-    elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight', 'draw']):
+    elif any(x in text for x in ['vs', 'win', 'loss', 'score', 'highlight']):
         return "MATCH_DEEP_DIVE", """
-        **STRUCTURE GUIDE 1: NARRATIVE (300 Words)**
-        - H2 Requirement: A dramatic headline summarizing the match vibe.
-          - H3: Pre-match context vs Reality.
+        **SECTION 1 GUIDE: NARRATIVE**
+        - H2 Requirement: Dramatic match headline.
+          - H3: Context vs Reality.
           
-        **STRUCTURE GUIDE 2: TACTICS (400 Words)**
-        - H2 Requirement: A headline about specific tactical battles.
-          - H3: Midfield analysis.
-            - H4: Key movements.
-          - H3: Defensive structure.
-            - H4: Errors committed.
+        **SECTION 2 GUIDE: TACTICS**
+        - H2 Requirement: Unique tactical battle headline.
+          - H3: Midfield/Defense analysis.
             
-        **STRUCTURE GUIDE 3: MOMENTS (300 Words)**
-        - H2 Requirement: A headline about the turning point.
-          - H3: Goal analysis.
-          - H3: Controversy/VAR check.
+        **SECTION 3 GUIDE: KEY MOMENTS**
+        - H2 Requirement: Turning point headline.
+          - H3: Goals/VAR.
           
-        **STRUCTURE GUIDE 4: DATA (300 Words)**
-        - H2 Requirement: A headline about the stats/ratings.
-          - H3: Player Ratings Table (Markdown).
-          - H3: xG Analysis.
+        **SECTION 4 GUIDE: DATA**
+        - H2 Requirement: Stats headline.
+          - H3: Ratings Table (Markdown).
         """
         
     else:
         return "EDITORIAL_FEATURE", """
-        **STRUCTURE GUIDE 1: CONTEXT (300 Words)**
-        - H2 Requirement: A headline about the history/background.
-          - H3: Timeline of events.
-            - H4: How it started.
+        **SECTION 1 GUIDE: CONTEXT**
+        - H2 Requirement: History/Background headline.
+          - H3: Timeline.
             
-        **STRUCTURE GUIDE 2: ANALYSIS (400 Words)**
-        - H2 Requirement: A deep dive headline into the core issue.
-          - H3: Data/Facts (Markdown Table Required).
-          - H3: Historical comparison.
-            - H4: Past examples.
+        **SECTION 2 GUIDE: DEEP DIVE**
+        - H2 Requirement: Core issue headline.
+          - H3: Data/Facts (Table Required).
             
-        **STRUCTURE GUIDE 3: REACTION (300 Words)**
-        - H2 Requirement: A headline about public/expert sentiment.
-          - H3: Fan reactions.
-          - H3: Pundit opinions.
+        **SECTION 3 GUIDE: OPINION**
+        - H2 Requirement: Reaction headline.
+          - H3: Fans/Experts view.
           
-        **STRUCTURE GUIDE 4: FUTURE (250 Words)**
-        - H2 Requirement: A predictive headline about what comes next.
-          - H3: Long-term impact.
+        **SECTION 4 GUIDE: FUTURE**
+        - H2 Requirement: Prediction headline.
+          - H3: Impact.
         """
 
 def clean_json_response(content):
@@ -287,73 +319,60 @@ def get_groq_article_json(title, summary, link, author_name):
     current_date = datetime.now().strftime("%Y-%m-%d")
     blueprint_type, blueprint_structure = get_article_blueprint(title, summary)
     
-    # SYSTEM PROMPT DIMODIFIKASI AGAR HEADER UNIK
     system_prompt = f"""
-    You are {author_name}, a world-class senior sports journalist.
-    
+    You are {author_name}, a senior sports journalist.
     DATE: {current_date}.
     
-    YOUR MISSION: 
-    Write a 1500-WORD Deep Dive Article. Output strictly valid JSON.
+    MISSION: Write a 1500-WORD Deep Dive. Output VALID JSON.
     
-    🚨 CRITICAL RULES FOR HEADERS (H2, H3, H4):
-    1. **NEVER** use generic words like "Section 1", "Introduction", "The Deal", "Tactical Analysis", "Conclusion", or "Verdict".
-    2. **YOU MUST REWRITE** every H2 and H3 headline to be CREATIVE, UNIQUE, and SPECIFIC to the news topic.
-    3. Example: Instead of "Tactical Fit", write "How Calafiori Unlock's Arteta's Left Side".
-    4. Example: Instead of "The Verdict", write "Why this £40m Gamble Will Pay Off".
+    ⛔ FORBIDDEN WORDS IN HEADERS:
+    - "Section", "Introduction", "Conclusion", "Verdict", "Analysis".
     
-    STRUCTURE TO FOLLOW (Do not copy the labels, follow the logic):
+    ✅ MANDATORY HEADER RULES:
+    - Every H2 and H3 must be creative, specific, and catchy.
+    - Example: Instead of "Tactical Fit", write "How He Unlocks The Midfield".
+    
+    STRUCTURE GUIDE:
     {blueprint_structure}
     
     JSON OUTPUT FORMAT:
     {{
-        "title": "Viral Editorial Headline (No Clickbait)",
-        "description": "SEO Description (160 chars)",
-        "category": "One of: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
-        "main_keyword": "Entity name for image generation",
-        "tags": ["tag1", "tag2", "tag3"],
-        "content_body": "Full Markdown content. Make H2/H3 headers unique/contextual."
+        "title": "Viral Headline",
+        "description": "SEO Description",
+        "category": "Pick one: Transfer News, Premier League, Champions League, La Liga, International, Tactical Analysis",
+        "main_keyword": "Entity for image",
+        "tags": ["tag1", "tag2"],
+        "content_body": "Full Markdown content with UNIQUE H2/H3 headers."
     }}
     """
 
     user_prompt = f"""
     TOPIC: {title}
     DETAILS: {summary}
-    SOURCE LINK: {link}
+    SOURCE: {link}
     
-    INSTRUCTIONS:
-    - Write deep, analytical paragraphs.
-    - Include at least one Markdown Table.
-    - Ensure all H2/H3 headers are unique and catchy (No "Section 1" text in final output!).
+    Execute the blueprint. Write extensively. Include a Table.
     """
 
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing ({author_name}) - Pattern: {blueprint_type}...")
+            print(f"      🤖 AI Writing ({author_name})...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7, # Sedikit kreatif untuk judul
+                temperature=0.75, 
                 max_tokens=8000, 
                 response_format={"type": "json_object"}
             )
+            return clean_json_response(completion.choices[0].message.content)
             
-            raw_content = completion.choices[0].message.content
-            cleaned_json = clean_json_response(raw_content)
-            
-            # Validasi
-            json.loads(cleaned_json)
-            return cleaned_json
-            
-        except RateLimitError:
-            time.sleep(5)
-            continue
         except Exception as e:
             print(f"      ⚠️ Groq Error: {e}")
+            time.sleep(3)
             continue
             
     return None
@@ -367,7 +386,7 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     total_generated = 0
-    print("🔥 STARTING ENGINE (MEGA-CONTENT MODE: UNIQUE HEADERS)...")
+    print("🔥 STARTING ENGINE (UNLIMITED IMAGE MODE + FIXED LINKS)...")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Fetching Source: {source_name}...")
@@ -388,43 +407,37 @@ def main():
             current_author = random.choice(AUTHOR_PROFILES)
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
-            # 1. GENERATE KONTEN (AI)
+            # 1. GENERATE
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, current_author)
-            
-            if not raw_json: 
-                print("      ❌ Content Generation Failed")
-                continue
+            if not raw_json: continue
             
             try:
                 data = json.loads(raw_json)
-            except: 
-                print("      ❌ JSON Parse Error")
-                continue
+            except: continue
 
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
-            # 2. GENERATE IMAGE
+            # 2. IMAGE (UNLIMITED)
             img_name = f"{slug}.webp"
-            keyword_for_image = data.get('main_keyword') or clean_title
-            final_img = download_and_optimize_image(keyword_for_image, img_name)
+            keyword = data.get('main_keyword') or clean_title
+            final_img = download_and_optimize_image(keyword, img_name)
             
-            # 3. INJECT LINKS
-            links_md = get_internal_links_markdown()
+            # 3. LINKS (FIXED)
+            links_md = get_internal_links_markdown() # Ambil link dari memory
             final_body = inject_links_in_middle(data['content_body'], links_md)
 
-            # 4. SAVE FILE
+            # 4. SAVE
             date_now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
-            tags_list = data.get('tags', [])
             
             md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
 date: {date_now}
 author: "{current_author.split('(')[0].strip()}"
 categories: ["{data['category']}"]
-tags: {json.dumps(tags_list)}
+tags: {json.dumps(data.get('tags', []))}
 featured_image: "{final_img}"
-featured_image_alt: "{data.get('main_keyword')}"
+featured_image_alt: "{keyword}"
 description: "{data['description'].replace('"', "'")}"
 slug: "{slug}"
 draft: false
@@ -438,7 +451,7 @@ draft: false
             with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
                 f.write(md_content)
             
-            # 5. MEMORY & INDEXING
+            # 5. SAVE TO MEMORY (Supaya artikel berikutnya bisa melink ke artikel ini)
             save_link_to_memory(data['title'], slug)
             
             print(f"      ✅ Published: {filename}")
@@ -450,7 +463,7 @@ draft: false
             cat_success_count += 1
             total_generated += 1
             
-            time.sleep(10)
+            time.sleep(5) 
 
     print(f"\n🎉 DONE! Total Articles Generated: {total_generated}")
 
