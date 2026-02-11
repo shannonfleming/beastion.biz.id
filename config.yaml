@@ -14,26 +14,27 @@ markup:
     renderer:
       unsafe: true
 
-# --- BAGIAN INI YANG SAYA PERBAIKI ---
+# --- PERBAIKAN DI SINI ---
+# Kita kembalikan ke settingan standar yang paling aman untuk SEO
 outputs:
   home:
     - HTML
     - RSS
-    - Sitemap
+    - Sitemap # Sitemap utama ada di sini (root)
   section:
     - HTML
     - RSS
-    - Sitemap  # <-- Ditambahkan agar daftar kategori masuk sitemap
-  page:
-    - HTML
-    - Sitemap  # <-- WAJIB ADA agar artikel masuk sitemap!
   taxonomy:
     - HTML
     - RSS
   term:
     - HTML
     - RSS
-# -------------------------------------
+  page:
+    - HTML 
+    # HAPUS 'Sitemap' dari sini. 
+    # Artikel tetap akan masuk ke sitemap utama secara otomatis.
+# -------------------------
 
 services:
   rss:
