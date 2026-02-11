@@ -2,43 +2,43 @@ baseURL: "https://beastion.biz.id/"
 languageCode: "en-us"
 title: "beastion.biz.id"
 canonifyURLs: true
-
+Agar artikel tidak 404 jika jam server beda sedikit dengan jam artikel
+buildFuture: true
 permalinks:
-  articles: "/:slug/"
-
+articles: "/:slug/"
 markup:
-  goldmark:
-    renderer:
-      unsafe: true
-
+goldmark:
+renderer:
+unsafe: true
+--- BAGIAN INI YANG SAYA PERBAIKI ---
 outputs:
-  home:
-    - HTML
-    - RSS
-    - Sitemap
-  page:
-    - HTML
-  section:
-    - HTML
-    - RSS
-  taxonomy:
-    - HTML
-    - RSS
-  term:
-    - HTML
-    - RSS
-
+home:
+- HTML
+- RSS
+- Sitemap
+section:
+- HTML
+- RSS
+- Sitemap  # <-- Ditambahkan agar daftar kategori masuk sitemap
+page:
+- HTML
+- Sitemap  # <-- WAJIB ADA agar artikel masuk sitemap!
+taxonomy:
+- HTML
+- RSS
+term:
+- HTML
+- RSS
+-------------------------------------
 services:
-  rss:
-    limit: 50
-
+rss:
+limit: 50
 taxonomies:
-  category: "categories"
-  tag: "tags"
-
+category: "categories"
+tag: "tags"
 params:
-  description: "Your #1 source for breaking football news, live scores, transfer rumors (Fabrizio Romano), and tactical analysis for Premier League, La Liga, & Champions League."
-  defaultImage: "/images/default-football.jpg"
-  author:
-    name: "beastion.biz.id Team"
-    email: "contact@Sportdaily.com"
+description: "Your #1 source for breaking football news, live scores, transfer rumors (Fabrizio Romano), and tactical analysis for Premier League, La Liga, & Champions League."
+defaultImage: "/images/default-football.jpg"
+author:
+name: "beastion.biz.id Team"
+email: "contact@Sportdaily.com"
