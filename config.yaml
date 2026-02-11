@@ -32,7 +32,7 @@ outputs:
     - RSS
   page:
     - HTML 
-    # HAPUS 'Sitemap' dari sini. 
+    - Sitemap
     # Artikel tetap akan masuk ke sitemap utama secara otomatis.
 # -------------------------
 
