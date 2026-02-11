@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-
-# Ganti dengan link sitemap Anda yang benar
+ 
 Sitemap: https://beastion.biz.id/sitemap.xml
