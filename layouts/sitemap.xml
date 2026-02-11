@@ -3,7 +3,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
-  {{ range .Data.Pages }}
+  {{ range .Data.articles }}
     {{ if not .Params.private }}
       {{/* STRATEGI SEO 2026: Jangan masukkan halaman TAGS ke sitemap agar Crawl Budget fokus ke Artikel */}}
       {{ if ne .Section "tags" }}
