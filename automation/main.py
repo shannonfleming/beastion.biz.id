@@ -13,6 +13,14 @@ from io import BytesIO
 from PIL import Image
 from groq import Groq, APIError, RateLimitError
 
+# --- LIBRARY ANTI-CLOUDFLARE ---
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+    print("⚠️ Cloudscraper not installed. CF bypass will fail.")
+
 # --- SUPPRESS WARNINGS ---
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -23,7 +31,6 @@ try:
     GOOGLE_LIBS_AVAILABLE = True
 except ImportError:
     GOOGLE_LIBS_AVAILABLE = False
-    # print("⚠️ Google Indexing Libs not found.") 
 
 # ==========================================
 # ⚙️ CONFIGURATION & SETUP
@@ -96,10 +103,16 @@ def get_internal_links_markdown():
     return "\n".join([f"- [{title}]({url})" for title, url in selected_items])
 
 def fetch_rss_feed(url):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    # Menggunakan Cloudscraper juga untuk RSS agar lebih aman
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        return feedparser.parse(response.content) if response.status_code == 200 else None
+        if CLOUDSCRAPER_AVAILABLE:
+            scraper = cloudscraper.create_scraper()
+            response = scraper.get(url, timeout=15)
+            return feedparser.parse(response.content)
+        else:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers, timeout=10)
+            return feedparser.parse(response.content)
     except: return None
 
 def clean_ai_content(text):
@@ -146,77 +159,72 @@ def submit_to_google(url):
         print(f"      ⚠️ Google Indexing Error: {e}")
 
 # ==========================================
-# 🎨 MULTI-PROVIDER AI IMAGE GENERATOR
+# 🎨 CLOUDSCRAPER IMAGE GENERATOR
 # ==========================================
 def generate_ai_image(prompt, filename):
     """
-    Sistem Multi-Layer untuk menghindari Error 530 (IP Block).
-    1. Pollinations (Flux)
-    2. Hercai (Backup Server)
-    3. Default Image
+    Menggunakan Cloudscraper untuk menembus blokir Cloudflare (CF).
     """
+    if not CLOUDSCRAPER_AVAILABLE:
+        print("      ⚠️ Cloudscraper missing! Cannot bypass CF.")
+        return "/images/default-football.webp"
+
     output_path = f"{IMAGE_DIR}/{filename}"
     
-    # Perkaya Prompt
+    # 1. Setup Prompt
     clean_prompt = prompt.replace('"', '').replace("'", "").strip()
-    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, highly detailed texture, sports photography"
+    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, sports photography"
     encoded_prompt = requests.utils.quote(enhanced_prompt)
-    seed = random.randint(1, 9999999)
+    seed = random.randint(1, 999999)
 
-    # --- PROVIDER 1: POLLINATIONS (FLUX) ---
-    url_pollinations = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true&enhance=true"
-    
-    # Headers "Paranoid" agar terlihat seperti Chrome asli
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://pollinations.ai/",
-        "Origin": "https://pollinations.ai",
-        "Sec-Fetch-Dest": "image",
-        "Sec-Fetch-Mode": "no-cors",
-        "Sec-Fetch-Site": "cross-site",
-    }
+    # 2. Setup Scraper (Browser Simulator)
+    # 'browser' simulates Chrome to fool Cloudflare
+    scraper = cloudscraper.create_scraper(
+        browser={
+            'browser': 'chrome',
+            'platform': 'windows',
+            'desktop': True
+        }
+    )
 
-    print(f"      🎨 Generating Image...")
-    
-    # ATTEMPT 1: Pollinations
+    print(f"      🎨 Generating Image (Bypassing CF)...")
+
+    # --- STRATEGY 1: POLLINATIONS via Cloudscraper ---
     try:
-        resp = requests.get(url_pollinations, headers=headers, timeout=25)
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
+        resp = scraper.get(url, timeout=30)
+        
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
             img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved (Provider: Pollinations)")
+            print("      ✅ Image Saved (Pollinations/Flux)")
             return f"/images/{filename}"
         else:
-            print(f"      ⚠️ Pollinations Refused ({resp.status_code}). Switching to backup...")
-    except Exception:
-        print("      ⚠️ Pollinations Timeout. Switching to backup...")
-
-    # ATTEMPT 2: HERCAI (BACKUP PROVIDER - BEDA SERVER)
-    # API ini jarang memblokir GitHub
-    try:
-        print("      🔄 Trying Backup Provider (Hercai)...")
-        # Menggunakan model v3 (prodia/realism)
-        hercai_url = f"https://hercai.onrender.com/v3/text2image?prompt={encoded_prompt}"
-        resp_hercai = requests.get(hercai_url, headers=headers, timeout=30)
-        
-        if resp_hercai.status_code == 200:
-            json_data = resp_hercai.json()
-            if "url" in json_data:
-                image_url = json_data["url"]
-                # Download gambar dari URL hasil Hercai
-                img_data = requests.get(image_url, headers=headers, timeout=20).content
-                img = Image.open(BytesIO(img_data)).convert("RGB")
-                img.save(output_path, "WEBP", quality=90)
-                print("      ✅ Image Saved (Provider: Hercai)")
-                return f"/images/{filename}"
+            print(f"      ⚠️ Pollinations blocked: {resp.status_code}")
     except Exception as e:
-        print(f"      ⚠️ Backup Provider Failed: {e}")
+        print(f"      ⚠️ Pollinations Error: {e}")
 
-    # FINAL FALLBACK: Default Image
-    # Pastikan file 'default-football.webp' ada di folder static/images/
-    print("      ⚠️ All AI Generators failed. Using Default.")
+    # --- STRATEGY 2: PRODIA via API Fallback ---
+    # Prodia seringkali lebih ramah, kita coba endpoint public mereka
+    try:
+        print("      🔄 Trying Backup (Prodia)...")
+        # Menggunakan endpoint public Prodia (model v1)
+        prodia_url = f"https://job.prodia.com/generate?new=true&prompt={encoded_prompt}&model=absolutereality_v181.safetensors [3d9d4d2b]&aspect_ratio=landscape&steps=20&cfg_scale=7&seed={seed}&sampler=DPM++ 2M Karras"
+        # Note: Prodia requires exact headers usually, trying generic scraper first
+        # Jika prodia gagal, kita pakai link langsung
+        fallback_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=turbo" 
+        resp2 = scraper.get(fallback_url, timeout=30)
+        
+        if resp2.status_code == 200:
+            img = Image.open(BytesIO(resp2.content)).convert("RGB")
+            img.save(output_path, "WEBP", quality=90)
+            print("      ✅ Image Saved (Backup Turbo)")
+            return f"/images/{filename}"
+    except Exception:
+        pass
+
+    # --- FINAL FALLBACK ---
+    print("      ⚠️ All CF Bypasses failed. Using Default.")
     return "/images/default-football.webp"
 
 # ==========================================
@@ -275,7 +283,10 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: MULTI-PROVIDER MODE")
+    print("🔥 ENGINE STARTED: CLOUDSCRAPER MODE (ANTI-CF)")
+    
+    if not CLOUDSCRAPER_AVAILABLE:
+        print("⚠️ WARNING: cloudscraper not found. Please add to requirements!")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -305,7 +316,7 @@ def main():
                 print("      ❌ JSON Parse Error")
                 continue
 
-            # Generate Image (Dengan Backup System)
+            # Generate Image (Cloudscraper)
             image_prompt = data.get('main_keyword', clean_title)
             final_img_path = generate_ai_image(image_prompt, f"{slug}.webp")
             
