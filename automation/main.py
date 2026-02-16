@@ -29,29 +29,34 @@ except ImportError:
 # ⚙️ CONFIGURATION & SETUP
 # ==========================================
 
-GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "gsk_YOUR_KEY_HERE") 
+# API KEYS
+GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "") 
 GROQ_API_KEYS = [k.strip() for k in GROQ_KEYS_RAW.split(",") if k.strip()]
 
+# WEBSITE CONFIG
 WEBSITE_URL = "https://beastion.biz.id" 
 INDEXNOW_KEY = "e74819b68a0f40e98f6ec3dc24f610f0" 
 GOOGLE_JSON_KEY = os.environ.get("GOOGLE_INDEXING_KEY", "") 
 
+# CHECK KEYS
 if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
-# TIM PENULIS
+# AUTHOR DATABASE
 AUTHOR_PROFILES = [
     "Dave Harsya (Tactical Analyst)", "Sarah Jenkins (Senior Editor)",
     "Luca Romano (Market Expert)", "Marcus Reynolds (League Correspondent)",
     "Ben Foster (Data Journalist)"
 ]
 
+# CATEGORY LIST
 VALID_CATEGORIES = [
     "Transfer News", "Premier League", "Champions League", 
     "La Liga", "International", "Tactical Analysis"
 ]
 
+# RSS FEEDS
 RSS_SOURCES = {
     "SkySports": "https://www.skysports.com/rss/12040",
     "BBC Football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
@@ -59,6 +64,7 @@ RSS_SOURCES = {
     "The Guardian": "https://www.theguardian.com/football/rss"
 }
 
+# DIRECTORIES
 CONTENT_DIR = "content/articles" 
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
@@ -125,7 +131,7 @@ def submit_to_indexnow(url):
             "keyLocation": f"https://{host}/{INDEXNOW_KEY}.txt",
             "urlList": [url]
         }
-        requests.post(endpoint, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}, timeout=5)
+        requests.post(endpoint, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}, timeout=10)
         print(f"      🚀 IndexNow Submitted")
     except Exception as e:
         print(f"      ⚠️ IndexNow Failed: {e}")
@@ -144,48 +150,76 @@ def submit_to_google(url):
         print(f"      ⚠️ Google Indexing Error: {e}")
 
 # ==========================================
-# 🎨 AI IMAGE GENERATOR (PERCHANCE / FLUX STYLE)
+# 🎨 AI IMAGE GENERATOR (FLUX / PERCHANCE STYLE)
 # ==========================================
 def generate_ai_image(prompt, filename):
     """
-    Menggenerate gambar AI menggunakan model FLUX (Kualitas setara Perchance/Midjourney).
+    Menggenerate gambar menggunakan model FLUX (Engine yang sama dengan Perchance).
+    Menggunakan HEADERS LENGKAP untuk menghindari Error 530 (Anti-Bot).
     """
     output_path = f"{IMAGE_DIR}/{filename}"
     
-    # Meningkatkan prompt agar hasil lebih realistis (Style Perchance)
-    enhanced_prompt = f"{prompt}, football match action, hyperrealistic, 8k, cinematic lighting, dramatic angle, highly detailed stadium background, sports photography style"
+    # 1. Bersihkan & Perkaya Prompt (Style Realistis)
+    clean_prompt = prompt.replace('"', '').replace("'", "").strip()
+    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, highly detailed texture, sports photography, sharp focus"
+    
+    # Encode URL
     encoded_prompt = requests.utils.quote(enhanced_prompt)
     
-    # Menggunakan Seed Random agar gambar selalu unik
-    seed = random.randint(1, 999999)
+    # 2. Random Seed (Agar gambar selalu beda)
+    seed = random.randint(1, 9999999)
     
-    # URL Generator (Menggunakan Model FLUX untuk kualitas tinggi)
-    # Catatan: Perchance API diproteksi browser, ini menggunakan endpoint Flux publik
-    # yang memberikan hasil setara.
-    ai_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true&enhance=true"
-    
-    print(f"      🎨 Generating AI Image (Flux Engine)...")
+    # 3. URL API (Model FLUX)
+    # nologo=true (Hapus watermark), enhance=true (Auto-beauty)
+    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true&enhance=true"
+
+    # 4. HEADERS PENYAMARAN (CRITICAL FIX FOR ERROR 530)
+    # Ini membuat script terlihat seperti browser Chrome asli
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://pollinations.ai/",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive"
+    }
+
+    print(f"      🎨 Generating Image (Flux Engine)...")
     
     try:
-        # Download gambar
-        resp = requests.get(ai_url, timeout=30)
+        # Request dengan Timeout 40 detik (Flux kadang butuh waktu)
+        resp = requests.get(url, headers=headers, timeout=40)
+        
         if resp.status_code == 200:
+            # Sukses! Simpan gambar
             img = Image.open(BytesIO(resp.content)).convert("RGB")
-            
-            # Save sebagai WebP agar ringan
             img.save(output_path, "WEBP", quality=90)
-            print("      ✅ AI Image Created & Saved!")
+            print("      ✅ Image Saved Successfully!")
             return f"/images/{filename}"
+        
         else:
-            print(f"      ⚠️ AI Gen Failed (Status: {resp.status_code})")
+            print(f"      ⚠️ Server Refused: {resp.status_code}")
+            
+            # --- FALLBACK MECHANISM ---
+            # Jika Flux gagal/sibuk, coba model 'Turbo' (lebih ringan)
+            if resp.status_code >= 500 or resp.status_code == 429:
+                print("      🔄 Retrying with Turbo model...")
+                url_fallback = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=turbo&seed={seed}&nologo=true"
+                resp2 = requests.get(url_fallback, headers=headers, timeout=20)
+                
+                if resp2.status_code == 200:
+                    img = Image.open(BytesIO(resp2.content)).convert("RGB")
+                    img.save(output_path, "WEBP", quality=90)
+                    print("      ✅ Image Saved (Fallback Mode)!")
+                    return f"/images/{filename}"
+
     except Exception as e:
-        print(f"      ⚠️ AI Gen Error: {e}")
-    
-    # Fallback jika AI gagal (Return string kosong atau default)
-    return ""
+        print(f"      ⚠️ Image Generation Error: {e}")
+
+    # Jika gagal total, kembalikan string kosong (gunakan default di HTML nanti)
+    return "" 
 
 # ==========================================
-# 🧠 CONTENT ENGINE
+# 🧠 CONTENT ENGINE (GROQ AI)
 # ==========================================
 
 def get_groq_article_json(title, summary, link, author_name):
@@ -199,7 +233,7 @@ def get_groq_article_json(title, summary, link, author_name):
     
     OUTPUT FORMAT:
     JSON Object keys: "title", "description", "category", "main_keyword", "tags", "content_body".
-    "main_keyword" should be a specific visual scene description (e.g., "Erling Haaland scoring goal at Etihad Stadium").
+    "main_keyword" MUST be a visual description for an image generator (e.g., "Mo Salah celebrating goal at Anfield, wide angle").
     """
     
     user_prompt = f"""
@@ -226,19 +260,25 @@ def get_groq_article_json(title, summary, link, author_name):
                 response_format={"type": "json_object"}
             )
             return completion.choices[0].message.content
-        except RateLimitError: time.sleep(3)
-        except Exception: pass
+        except RateLimitError:
+            print("      ⚠️ Rate Limit Hit, switching key...")
+            time.sleep(2)
+        except Exception as e: 
+            print(f"      ⚠️ Groq Error: {e}")
+            pass
+            
     return None
 
 # ==========================================
 # 🏁 MAIN WORKFLOW
 # ==========================================
 def main():
+    # Buat folder jika belum ada
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: AI IMAGE MODE (FLUX/PERCHANCE STYLE)")
+    print("🔥 ENGINE STARTED: FLUX IMAGE GENERATION (PERCHANCE STYLE)")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -249,10 +289,12 @@ def main():
         for entry in feed.entries:
             if processed >= TARGET_PER_SOURCE: break
             
+            # Clean Title & Slug
             clean_title = entry.title.split(" - ")[0]
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
             
+            # Skip jika artikel sudah ada
             if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
                 continue
             
@@ -269,21 +311,22 @@ def main():
                 print("      ❌ JSON Parse Error")
                 continue
 
-            # 2. AI Image Generation (Pengganti Unsplash)
-            # Menggunakan main_keyword dari AI agar gambar relevan
+            # 2. Image Generation (Flux Engine)
+            # Menggunakan keyword visual dari AI
             image_prompt = data.get('main_keyword', clean_title)
             final_img_path = generate_ai_image(image_prompt, f"{slug}.webp")
             
-            # Jika gagal generate, pakai placeholder atau coba keyword lain
+            # Jika gagal generate, pakai default
             if not final_img_path:
-                print("      ⚠️ Using default placeholder.")
+                print("      ⚠️ Using default placeholder image.")
                 final_img_path = "/images/default-football.webp" 
 
-            # 3. Clean & Save
+            # 3. Clean & Save Article
             clean_body = clean_ai_content(data['content_body'])
             links_md = get_internal_links_markdown()
             final_body = clean_body + "\n\n### Read More\n" + links_md
             
+            # Validasi kategori
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
@@ -318,6 +361,8 @@ weight: {random.randint(1, 10)}
 
             print(f"      ✅ Published: {slug}")
             processed += 1
+            
+            # Delay agar tidak dianggap spam
             time.sleep(5)
 
 if __name__ == "__main__":
