@@ -13,14 +13,6 @@ from io import BytesIO
 from PIL import Image
 from groq import Groq, APIError, RateLimitError
 
-# --- LIBRARY ANTI-CLOUDFLARE ---
-try:
-    import cloudscraper
-    CLOUDSCRAPER_AVAILABLE = True
-except ImportError:
-    CLOUDSCRAPER_AVAILABLE = False
-    print("⚠️ Cloudscraper not installed. CF bypass will fail.")
-
 # --- SUPPRESS WARNINGS ---
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -36,34 +28,28 @@ except ImportError:
 # ⚙️ CONFIGURATION & SETUP
 # ==========================================
 
-# API KEYS
 GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "") 
 GROQ_API_KEYS = [k.strip() for k in GROQ_KEYS_RAW.split(",") if k.strip()]
 
-# WEBSITE CONFIG
 WEBSITE_URL = "https://beastion.biz.id" 
 INDEXNOW_KEY = "e74819b68a0f40e98f6ec3dc24f610f0" 
 GOOGLE_JSON_KEY = os.environ.get("GOOGLE_INDEXING_KEY", "") 
 
-# CHECK KEYS
 if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing!")
     exit(1)
 
-# AUTHOR DATABASE
 AUTHOR_PROFILES = [
     "Dave Harsya (Tactical Analyst)", "Sarah Jenkins (Senior Editor)",
     "Luca Romano (Market Expert)", "Marcus Reynolds (League Correspondent)",
     "Ben Foster (Data Journalist)"
 ]
 
-# CATEGORY LIST
 VALID_CATEGORIES = [
     "Transfer News", "Premier League", "Champions League", 
     "La Liga", "International", "Tactical Analysis"
 ]
 
-# RSS FEEDS
 RSS_SOURCES = {
     "SkySports": "https://www.skysports.com/rss/12040",
     "BBC Football": "https://feeds.bbci.co.uk/sport/football/rss.xml",
@@ -71,7 +57,6 @@ RSS_SOURCES = {
     "The Guardian": "https://www.theguardian.com/football/rss"
 }
 
-# DIRECTORIES
 CONTENT_DIR = "content/articles" 
 IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
@@ -103,16 +88,10 @@ def get_internal_links_markdown():
     return "\n".join([f"- [{title}]({url})" for title, url in selected_items])
 
 def fetch_rss_feed(url):
-    # Menggunakan Cloudscraper juga untuk RSS agar lebih aman
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     try:
-        if CLOUDSCRAPER_AVAILABLE:
-            scraper = cloudscraper.create_scraper()
-            response = scraper.get(url, timeout=15)
-            return feedparser.parse(response.content)
-        else:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, headers=headers, timeout=10)
-            return feedparser.parse(response.content)
+        response = requests.get(url, headers=headers, timeout=10)
+        return feedparser.parse(response.content) if response.status_code == 200 else None
     except: return None
 
 def clean_ai_content(text):
@@ -159,72 +138,79 @@ def submit_to_google(url):
         print(f"      ⚠️ Google Indexing Error: {e}")
 
 # ==========================================
-# 🎨 CLOUDSCRAPER IMAGE GENERATOR
+# 🎨 ROBUST IMAGE GENERATOR (SURVIVAL MODE)
 # ==========================================
-def generate_ai_image(prompt, filename):
-    """
-    Menggunakan Cloudscraper untuk menembus blokir Cloudflare (CF).
-    """
-    if not CLOUDSCRAPER_AVAILABLE:
-        print("      ⚠️ Cloudscraper missing! Cannot bypass CF.")
-        return "/images/default-football.webp"
-
+def generate_robust_image(prompt, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
     
-    # 1. Setup Prompt
-    clean_prompt = prompt.replace('"', '').replace("'", "").strip()
-    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, sports photography"
-    encoded_prompt = requests.utils.quote(enhanced_prompt)
-    seed = random.randint(1, 999999)
+    # Keyword extraction untuk fallback
+    # Ambil kata kunci sederhana untuk pencarian gambar jika AI gagal
+    clean_prompt = prompt.replace('"', '').replace("'", "")
+    
+    # Headers standar
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://google.com"
+    }
 
-    # 2. Setup Scraper (Browser Simulator)
-    # 'browser' simulates Chrome to fool Cloudflare
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'desktop': True
-        }
-    )
+    print(f"      🎨 Generating Image...")
 
-    print(f"      🎨 Generating Image (Bypassing CF)...")
-
-    # --- STRATEGY 1: POLLINATIONS via Cloudscraper ---
+    # --- ATTEMPT 1: HERCAI API (AI Generator - Usually Works) ---
     try:
-        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
-        resp = scraper.get(url, timeout=30)
+        # Hercai v3 uses ProdIA/SDXL models
+        hercai_url = f"https://hercai.onrender.com/v3/text2image?prompt={requests.utils.quote(clean_prompt + ', realistic, 4k, sports action')}"
+        resp = requests.get(hercai_url, headers=headers, timeout=40)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            if "url" in data:
+                img_url = data["url"]
+                img_data = requests.get(img_url, headers=headers, timeout=20).content
+                img = Image.open(BytesIO(img_data)).convert("RGB")
+                img.save(output_path, "WEBP", quality=90)
+                print("      ✅ Image Saved (Source: Hercai AI)")
+                return f"/images/{filename}"
+    except Exception as e:
+        print(f"      ⚠️ Hercai Failed: {e}")
+
+    # --- ATTEMPT 2: POLLINATIONS TURBO (AI Generator - Lightweight) ---
+    try:
+        # Gunakan model Turbo, kadang blokirannya tidak seketat model Flux
+        print("      🔄 Trying Pollinations Turbo...")
+        seed = random.randint(1, 99999)
+        poly_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(clean_prompt)}?width=1280&height=720&model=turbo&seed={seed}&nologo=true"
+        resp = requests.get(poly_url, headers=headers, timeout=20)
         
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
             img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved (Pollinations/Flux)")
+            print("      ✅ Image Saved (Source: Pollinations Turbo)")
             return f"/images/{filename}"
         else:
-            print(f"      ⚠️ Pollinations blocked: {resp.status_code}")
-    except Exception as e:
-        print(f"      ⚠️ Pollinations Error: {e}")
-
-    # --- STRATEGY 2: PRODIA via API Fallback ---
-    # Prodia seringkali lebih ramah, kita coba endpoint public mereka
-    try:
-        print("      🔄 Trying Backup (Prodia)...")
-        # Menggunakan endpoint public Prodia (model v1)
-        prodia_url = f"https://job.prodia.com/generate?new=true&prompt={encoded_prompt}&model=absolutereality_v181.safetensors [3d9d4d2b]&aspect_ratio=landscape&steps=20&cfg_scale=7&seed={seed}&sampler=DPM++ 2M Karras"
-        # Note: Prodia requires exact headers usually, trying generic scraper first
-        # Jika prodia gagal, kita pakai link langsung
-        fallback_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=turbo" 
-        resp2 = scraper.get(fallback_url, timeout=30)
-        
-        if resp2.status_code == 200:
-            img = Image.open(BytesIO(resp2.content)).convert("RGB")
-            img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved (Backup Turbo)")
-            return f"/images/{filename}"
+             print(f"      ⚠️ Pollinations Blocked ({resp.status_code})")
     except Exception:
         pass
 
-    # --- FINAL FALLBACK ---
-    print("      ⚠️ All CF Bypasses failed. Using Default.")
+    # --- ATTEMPT 3: REAL PHOTO FALLBACK (LoremFlickr) ---
+    # Jika semua AI Gagal/Diblokir, ambil foto asli dari Flickr.
+    # Ini MENJAMIN gambar tidak akan rusak/pecah.
+    try:
+        print("      🔄 Trying Real Photo Fallback (LoremFlickr)...")
+        # Keywords: football, stadium, soccer
+        keywords = "football,soccer,stadium"
+        flickr_url = f"https://loremflickr.com/1280/720/{keywords}/all"
+        
+        resp = requests.get(flickr_url, headers=headers, timeout=20, allow_redirects=True)
+        if resp.status_code == 200:
+            img = Image.open(BytesIO(resp.content)).convert("RGB")
+            img.save(output_path, "WEBP", quality=90)
+            print("      ✅ Image Saved (Source: Real Photo/Flickr)")
+            return f"/images/{filename}"
+    except Exception as e:
+        print(f"      ⚠️ Flickr Fallback Failed: {e}")
+
+    # --- EMERGENCY: DEFAULT ---
+    print("      ⚠️ ALL METHODS FAILED. Using static default.")
     return "/images/default-football.webp"
 
 # ==========================================
@@ -242,7 +228,7 @@ def get_groq_article_json(title, summary, link, author_name):
     
     OUTPUT FORMAT:
     JSON Object keys: "title", "description", "category", "main_keyword", "tags", "content_body".
-    "main_keyword" MUST be a visual description for an image generator (e.g., "Mo Salah celebrating goal at Anfield, wide angle").
+    "main_keyword" should be a short visual description (e.g. "football stadium crowd" or "soccer player running").
     """
     
     user_prompt = f"""
@@ -283,10 +269,7 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: CLOUDSCRAPER MODE (ANTI-CF)")
-    
-    if not CLOUDSCRAPER_AVAILABLE:
-        print("⚠️ WARNING: cloudscraper not found. Please add to requirements!")
+    print("🔥 ENGINE STARTED: SURVIVAL MODE")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -316,9 +299,9 @@ def main():
                 print("      ❌ JSON Parse Error")
                 continue
 
-            # Generate Image (Cloudscraper)
+            # Generate Image (Dengan Sistem Lapis 3)
             image_prompt = data.get('main_keyword', clean_title)
-            final_img_path = generate_ai_image(image_prompt, f"{slug}.webp")
+            final_img_path = generate_robust_image(image_prompt, f"{slug}.webp")
             
             # Clean & Save
             clean_body = clean_ai_content(data['content_body'])
