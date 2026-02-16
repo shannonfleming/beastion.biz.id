@@ -103,19 +103,15 @@ def fetch_rss_feed(url):
     except: return None
 
 def clean_ai_content(text):
-    """Membersihkan output AI dari wrapper code block dan tag HTML"""
     if not text: return ""
     text = re.sub(r'^```[a-zA-Z]*\n', '', text)
     text = re.sub(r'\n```$', '', text)
     text = text.replace("```", "")
-    
-    # HTML cleaner simple
     text = text.replace("<h1>", "# ").replace("</h1>", "\n")
     text = text.replace("<h2>", "## ").replace("</h2>", "\n")
     text = text.replace("<h3>", "### ").replace("</h3>", "\n")
     text = text.replace("<b>", "**").replace("</b>", "**")
     text = text.replace("<p>", "").replace("</p>", "\n\n")
-    
     return text.strip()
 
 # ==========================================
@@ -150,76 +146,81 @@ def submit_to_google(url):
         print(f"      ⚠️ Google Indexing Error: {e}")
 
 # ==========================================
-# 🎨 AI IMAGE GENERATOR (FLUX / PERCHANCE STYLE)
+# 🎨 MULTI-PROVIDER AI IMAGE GENERATOR
 # ==========================================
 def generate_ai_image(prompt, filename):
     """
-    Menggenerate gambar menggunakan model FLUX (Engine yang sama dengan Perchance).
-    Menggunakan HEADERS LENGKAP untuk menghindari Error 530 (Anti-Bot).
+    Sistem Multi-Layer untuk menghindari Error 530 (IP Block).
+    1. Pollinations (Flux)
+    2. Hercai (Backup Server)
+    3. Default Image
     """
     output_path = f"{IMAGE_DIR}/{filename}"
     
-    # 1. Bersihkan & Perkaya Prompt (Style Realistis)
+    # Perkaya Prompt
     clean_prompt = prompt.replace('"', '').replace("'", "").strip()
-    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, highly detailed texture, sports photography, sharp focus"
-    
-    # Encode URL
+    enhanced_prompt = f"{clean_prompt}, football match action, dynamic angle, 8k resolution, photorealistic, cinematic lighting, highly detailed texture, sports photography"
     encoded_prompt = requests.utils.quote(enhanced_prompt)
-    
-    # 2. Random Seed (Agar gambar selalu beda)
     seed = random.randint(1, 9999999)
-    
-    # 3. URL API (Model FLUX)
-    # nologo=true (Hapus watermark), enhance=true (Auto-beauty)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true&enhance=true"
 
-    # 4. HEADERS PENYAMARAN (CRITICAL FIX FOR ERROR 530)
-    # Ini membuat script terlihat seperti browser Chrome asli
+    # --- PROVIDER 1: POLLINATIONS (FLUX) ---
+    url_pollinations = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=flux&seed={seed}&nologo=true&enhance=true"
+    
+    # Headers "Paranoid" agar terlihat seperti Chrome asli
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://pollinations.ai/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Connection": "keep-alive"
+        "Referer": "https://pollinations.ai/",
+        "Origin": "https://pollinations.ai",
+        "Sec-Fetch-Dest": "image",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "cross-site",
     }
 
-    print(f"      🎨 Generating Image (Flux Engine)...")
+    print(f"      🎨 Generating Image...")
     
+    # ATTEMPT 1: Pollinations
     try:
-        # Request dengan Timeout 40 detik (Flux kadang butuh waktu)
-        resp = requests.get(url, headers=headers, timeout=40)
-        
+        resp = requests.get(url_pollinations, headers=headers, timeout=25)
         if resp.status_code == 200:
-            # Sukses! Simpan gambar
             img = Image.open(BytesIO(resp.content)).convert("RGB")
             img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved Successfully!")
+            print("      ✅ Image Saved (Provider: Pollinations)")
             return f"/images/{filename}"
-        
         else:
-            print(f"      ⚠️ Server Refused: {resp.status_code}")
-            
-            # --- FALLBACK MECHANISM ---
-            # Jika Flux gagal/sibuk, coba model 'Turbo' (lebih ringan)
-            if resp.status_code >= 500 or resp.status_code == 429:
-                print("      🔄 Retrying with Turbo model...")
-                url_fallback = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&model=turbo&seed={seed}&nologo=true"
-                resp2 = requests.get(url_fallback, headers=headers, timeout=20)
-                
-                if resp2.status_code == 200:
-                    img = Image.open(BytesIO(resp2.content)).convert("RGB")
-                    img.save(output_path, "WEBP", quality=90)
-                    print("      ✅ Image Saved (Fallback Mode)!")
-                    return f"/images/{filename}"
+            print(f"      ⚠️ Pollinations Refused ({resp.status_code}). Switching to backup...")
+    except Exception:
+        print("      ⚠️ Pollinations Timeout. Switching to backup...")
 
+    # ATTEMPT 2: HERCAI (BACKUP PROVIDER - BEDA SERVER)
+    # API ini jarang memblokir GitHub
+    try:
+        print("      🔄 Trying Backup Provider (Hercai)...")
+        # Menggunakan model v3 (prodia/realism)
+        hercai_url = f"https://hercai.onrender.com/v3/text2image?prompt={encoded_prompt}"
+        resp_hercai = requests.get(hercai_url, headers=headers, timeout=30)
+        
+        if resp_hercai.status_code == 200:
+            json_data = resp_hercai.json()
+            if "url" in json_data:
+                image_url = json_data["url"]
+                # Download gambar dari URL hasil Hercai
+                img_data = requests.get(image_url, headers=headers, timeout=20).content
+                img = Image.open(BytesIO(img_data)).convert("RGB")
+                img.save(output_path, "WEBP", quality=90)
+                print("      ✅ Image Saved (Provider: Hercai)")
+                return f"/images/{filename}"
     except Exception as e:
-        print(f"      ⚠️ Image Generation Error: {e}")
+        print(f"      ⚠️ Backup Provider Failed: {e}")
 
-    # Jika gagal total, kembalikan string kosong (gunakan default di HTML nanti)
-    return "" 
+    # FINAL FALLBACK: Default Image
+    # Pastikan file 'default-football.webp' ada di folder static/images/
+    print("      ⚠️ All AI Generators failed. Using Default.")
+    return "/images/default-football.webp"
 
 # ==========================================
-# 🧠 CONTENT ENGINE (GROQ AI)
+# 🧠 CONTENT ENGINE
 # ==========================================
 
 def get_groq_article_json(title, summary, link, author_name):
@@ -263,22 +264,18 @@ def get_groq_article_json(title, summary, link, author_name):
         except RateLimitError:
             print("      ⚠️ Rate Limit Hit, switching key...")
             time.sleep(2)
-        except Exception as e: 
-            print(f"      ⚠️ Groq Error: {e}")
-            pass
-            
+        except Exception: pass
     return None
 
 # ==========================================
 # 🏁 MAIN WORKFLOW
 # ==========================================
 def main():
-    # Buat folder jika belum ada
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🔥 ENGINE STARTED: FLUX IMAGE GENERATION (PERCHANCE STYLE)")
+    print("🔥 ENGINE STARTED: MULTI-PROVIDER MODE")
 
     for source_name, rss_url in RSS_SOURCES.items():
         print(f"\n📡 Reading: {source_name}")
@@ -289,18 +286,15 @@ def main():
         for entry in feed.entries:
             if processed >= TARGET_PER_SOURCE: break
             
-            # Clean Title & Slug
             clean_title = entry.title.split(" - ")[0]
             slug = slugify(clean_title, max_length=60, word_boundary=True)
             filename = f"{slug}.md"
             
-            # Skip jika artikel sudah ada
             if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
                 continue
             
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
-            # 1. Content Generation
             author = random.choice(AUTHOR_PROFILES)
             raw_json = get_groq_article_json(clean_title, entry.summary, entry.link, author)
             
@@ -311,22 +305,15 @@ def main():
                 print("      ❌ JSON Parse Error")
                 continue
 
-            # 2. Image Generation (Flux Engine)
-            # Menggunakan keyword visual dari AI
+            # Generate Image (Dengan Backup System)
             image_prompt = data.get('main_keyword', clean_title)
             final_img_path = generate_ai_image(image_prompt, f"{slug}.webp")
             
-            # Jika gagal generate, pakai default
-            if not final_img_path:
-                print("      ⚠️ Using default placeholder image.")
-                final_img_path = "/images/default-football.webp" 
-
-            # 3. Clean & Save Article
+            # Clean & Save
             clean_body = clean_ai_content(data['content_body'])
             links_md = get_internal_links_markdown()
             final_body = clean_body + "\n\n### Read More\n" + links_md
             
-            # Validasi kategori
             if data.get('category') not in VALID_CATEGORIES:
                 data['category'] = "International"
 
@@ -354,15 +341,12 @@ weight: {random.randint(1, 10)}
             
             save_link_to_memory(data['title'], slug)
             
-            # 4. Submit Indexing
             full_url = f"{WEBSITE_URL}/articles/{slug}/"
             submit_to_indexnow(full_url)
             submit_to_google(full_url)
 
             print(f"      ✅ Published: {slug}")
             processed += 1
-            
-            # Delay agar tidak dianggap spam
             time.sleep(5)
 
 if __name__ == "__main__":
